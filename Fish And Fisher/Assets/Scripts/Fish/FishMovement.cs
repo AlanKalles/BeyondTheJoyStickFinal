@@ -35,7 +35,7 @@ namespace FishAndFisher.Fish
         [SerializeField] private bool constrainToPlane = true;     // 是否约束在平面上
 
         [Header("边界设置")]
-        [SerializeField] private Vector2 boundarySize = new Vector2(50f, 50f); // XZ平面边界大小
+        [SerializeField] private bool useGlobalBoundary = true;    // 使用全局边界（GameBoundary）
         [SerializeField] private float boundaryPushForce = 5f;     // 边界推力
 
         // 内部状态
@@ -285,14 +285,33 @@ namespace FishAndFisher.Fish
         /// </summary>
         private void CheckBoundaries()
         {
+            // 如果使用全局边界
+            if (useGlobalBoundary && GameBoundary.Instance != null)
+            {
+                CheckGlobalBoundary();
+            }
+        }
+
+        /// <summary>
+        /// 检查全局边界
+        /// </summary>
+        private void CheckGlobalBoundary()
+        {
+            GameBoundary boundary = GameBoundary.Instance;
             Vector3 pos = transform.position;
+            Vector3 originalPos = pos;
+
+            // 获取边界
+            Vector2 minBounds = boundary.MinBounds;
+            Vector2 maxBounds = boundary.MaxBounds;
+
             bool hitBoundary = false;
 
             // X轴边界
-            if (Mathf.Abs(pos.x) > boundarySize.x / 2f)
+            if (pos.x < minBounds.x || pos.x > maxBounds.x)
             {
-                float pushDirection = -Mathf.Sign(pos.x);
-                pos.x = Mathf.Clamp(pos.x, -boundarySize.x / 2f, boundarySize.x / 2f);
+                float pushDirection = pos.x < minBounds.x ? 1f : -1f;
+                pos.x = Mathf.Clamp(pos.x, minBounds.x, maxBounds.x);
 
                 // 添加反向推力
                 velocity.x += pushDirection * boundaryPushForce;
@@ -300,10 +319,10 @@ namespace FishAndFisher.Fish
             }
 
             // Z轴边界
-            if (Mathf.Abs(pos.z) > boundarySize.y / 2f)
+            if (pos.z < minBounds.y || pos.z > maxBounds.y)
             {
-                float pushDirection = -Mathf.Sign(pos.z);
-                pos.z = Mathf.Clamp(pos.z, -boundarySize.y / 2f, boundarySize.y / 2f);
+                float pushDirection = pos.z < minBounds.y ? 1f : -1f;
+                pos.z = Mathf.Clamp(pos.z, minBounds.y, maxBounds.y);
 
                 // 添加反向推力
                 velocity.z += pushDirection * boundaryPushForce;
@@ -317,8 +336,8 @@ namespace FishAndFisher.Fish
                 // 减速
                 currentSpeed *= 0.5f;
 
-                // 调整方向朝向中心
-                Vector3 toCenter = -pos;
+                // 调整方向朝向边界中心
+                Vector3 toCenter = boundary.BoundaryCenter - pos;
                 toCenter.y = 0;
                 if (toCenter.magnitude > 0.1f)
                 {
@@ -340,12 +359,6 @@ namespace FishAndFisher.Fish
 
         private void OnDrawGizmosSelected()
         {
-            // 绘制边界
-            Gizmos.color = Color.cyan;
-            Vector3 center = new Vector3(0, swimDepth, 0);
-            Vector3 size = new Vector3(boundarySize.x, 0.1f, boundarySize.y);
-            Gizmos.DrawWireCube(center, size);
-
             // 绘制前进方向
             Gizmos.color = Color.yellow;
             Gizmos.DrawRay(transform.position, transform.forward * 2f);

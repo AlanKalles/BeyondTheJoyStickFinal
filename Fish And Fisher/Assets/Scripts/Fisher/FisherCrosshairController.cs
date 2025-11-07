@@ -23,8 +23,8 @@ namespace FishAndFisher.Fisher
         [SerializeField] private float visualPlaneY = 5f;
 
         [Header("移动设置")]
-        [Tooltip("准心移动范围限制（矩形边界，与鱼活动范围对等）")]
-        [SerializeField] private Vector2 boundarySize = new Vector2(50f, 50f);
+        [Tooltip("使用全局边界（GameBoundary）")]
+        [SerializeField] private bool useGlobalBoundary = true;
 
         [Tooltip("准心移动速度")]
         [SerializeField] private float moveSpeed = 5f;
@@ -142,9 +142,13 @@ namespace FishAndFisher.Fisher
             {
                 Vector3 hitPoint = ray.GetPoint(distance);
 
-                // 限制在矩形边界内（与鱼活动范围对等）
-                hitPoint.x = Mathf.Clamp(hitPoint.x, -boundarySize.x / 2f, boundarySize.x / 2f);
-                hitPoint.z = Mathf.Clamp(hitPoint.z, -boundarySize.y / 2f, boundarySize.y / 2f);
+                // 限制在边界内
+                if (useGlobalBoundary && GameBoundary.Instance != null)
+                {
+                    // 使用全局边界
+                    hitPoint = GameBoundary.Instance.ClampPointToBounds(hitPoint);
+                }
+
                 hitPoint.y = fishPlaneY; // 确保Y坐标固定
 
                 // 更新目标位置
@@ -203,12 +207,6 @@ namespace FishAndFisher.Fisher
         // 可视化调试信息
         private void OnDrawGizmos()
         {
-            // 绘制移动范围矩形边界（与鱼活动范围对等）
-            Gizmos.color = Color.yellow;
-            Vector3 boundaryCenter = new Vector3(0, fishPlaneY, 0);
-            Vector3 boundaryBoxSize = new Vector3(boundarySize.x, 0.1f, boundarySize.y);
-            Gizmos.DrawWireCube(boundaryCenter, boundaryBoxSize);
-
             if (!Application.isPlaying) return;
 
             // 绘制逻辑准心位置

@@ -12,11 +12,6 @@ namespace FishAndFisher.Fish
         [Header("基础设置")]
         [SerializeField] private bool autoSetupOnStart = false;
         [SerializeField] private bool addDebugUI = true;
-        [SerializeField] private bool createVisualPlaceholder = true;
-
-        [Header("视觉占位符设置")]
-        [SerializeField] private Color fishColor = new Color(0.2f, 0.6f, 0.9f);
-        [SerializeField] private float fishScale = 1f;
 
         /// <summary>
         /// 创建完整的鱼玩家GameObject
@@ -42,76 +37,13 @@ namespace FishAndFisher.Fish
             // 添加调试UI
             fishPlayer.AddComponent<FishDebugUI>();
 
-            // 创建视觉占位符
-            CreateVisualPlaceholder(fishPlayer);
-
             // 添加设置脚本
-            var setup = fishPlayer.AddComponent<FishPlayerSetup>();
-            setup.createVisualPlaceholder = true;
+            fishPlayer.AddComponent<FishPlayerSetup>();
 
             // 选中新创建的对象
             Selection.activeGameObject = fishPlayer;
 
-            Debug.Log("鱼玩家已创建！请在Inspector中调整参数。");
-        }
-
-        /// <summary>
-        /// 创建简单的视觉占位符
-        /// </summary>
-        private static void CreateVisualPlaceholder(GameObject parent)
-        {
-            // 创建鱼身主体
-            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.parent = parent.transform;
-            body.transform.localPosition = Vector3.zero;
-            body.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            body.transform.localScale = new Vector3(0.5f, 1f, 0.5f);
-
-            // 创建鱼尾
-            GameObject tail = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            tail.name = "Tail";
-            tail.transform.parent = parent.transform;
-            tail.transform.localPosition = new Vector3(0, 0, -1.2f);
-            tail.transform.localScale = new Vector3(0.8f, 0.3f, 0.4f);
-
-            // 创建鱼鳍（左）
-            GameObject finLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            finLeft.name = "FinLeft";
-            finLeft.transform.parent = parent.transform;
-            finLeft.transform.localPosition = new Vector3(-0.6f, 0, 0);
-            finLeft.transform.localScale = new Vector3(0.3f, 0.1f, 0.5f);
-            finLeft.transform.localRotation = Quaternion.Euler(0, -30, 0);
-
-            // 创建鱼鳍（右）
-            GameObject finRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            finRight.name = "FinRight";
-            finRight.transform.parent = parent.transform;
-            finRight.transform.localPosition = new Vector3(0.6f, 0, 0);
-            finRight.transform.localScale = new Vector3(0.3f, 0.1f, 0.5f);
-            finRight.transform.localRotation = Quaternion.Euler(0, 30, 0);
-
-            // 设置材质颜色
-            Material fishMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            fishMaterial.color = new Color(0.2f, 0.6f, 0.9f);
-
-            // 应用材质
-            body.GetComponent<Renderer>().material = fishMaterial;
-            tail.GetComponent<Renderer>().material = fishMaterial;
-            finLeft.GetComponent<Renderer>().material = fishMaterial;
-            finRight.GetComponent<Renderer>().material = fishMaterial;
-
-            // 移除不需要的碰撞体
-            Destroy(tail.GetComponent<Collider>());
-            Destroy(finLeft.GetComponent<Collider>());
-            Destroy(finRight.GetComponent<Collider>());
-
-            // 将主碰撞体调整为触发器
-            var bodyCollider = body.GetComponent<Collider>();
-            if (bodyCollider != null)
-            {
-                bodyCollider.isTrigger = false;
-            }
+            Debug.Log("鱼玩家控制器已创建！请手动添加鱼的3D模型作为子对象，并在FishAnimator中设置Animator引用。");
         }
 
         /// <summary>
@@ -254,40 +186,6 @@ namespace FishAndFisher.Fish
         {
             // 获取组件引用
             var movement = GetComponent<FishMovement>();
-            var animator = GetComponent<FishAnimator>();
-
-            // 配置FishAnimator
-            if (animator != null && createVisualPlaceholder)
-            {
-                // 尝试找到视觉元素并分配给动画器
-                Transform body = transform.Find("Body");
-                Transform tail = transform.Find("Tail");
-
-                if (body != null && tail != null)
-                {
-                    // 使用反射设置私有字段（在实际项目中应该提供公共接口）
-                    var animatorType = animator.GetType();
-
-                    var bodyField = animatorType.GetField("fishBody",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    bodyField?.SetValue(animator, body);
-
-                    var tailField = animatorType.GetField("fishTail",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    tailField?.SetValue(animator, tail);
-
-                    // 查找鱼鳍
-                    Transform[] fins = new Transform[]
-                    {
-                        transform.Find("FinLeft"),
-                        transform.Find("FinRight")
-                    };
-
-                    var finsField = animatorType.GetField("fishFins",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    finsField?.SetValue(animator, fins);
-                }
-            }
 
             // 配置初始位置
             if (movement != null)
@@ -305,11 +203,8 @@ namespace FishAndFisher.Fish
         private void Reset()
         {
             // 当脚本被添加或重置时调用
-            fishColor = new Color(0.2f, 0.6f, 0.9f);
-            fishScale = 1f;
             autoSetupOnStart = false;
             addDebugUI = true;
-            createVisualPlaceholder = true;
         }
 
         /// <summary>
