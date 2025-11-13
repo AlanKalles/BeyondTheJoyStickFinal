@@ -38,6 +38,11 @@ namespace FishAndFisher.Fish
         [SerializeField] private bool useGlobalBoundary = true;    // 使用全局边界（GameBoundary）
         [SerializeField] private float boundaryPushForce = 5f;     // 边界推力
 
+        [Header("Phase2设置")]
+        [SerializeField] private float phase2LeftAngle = -45f;     // Phase2左方向角度
+        [SerializeField] private float phase2RightAngle = 45f;     // Phase2右方向角度
+        [SerializeField] private float phase2RotationSpeed = 180f; // Phase2旋转速度
+
         // 内部状态
         private float currentSpeed;                    // 当前速度
         private float targetSpeed;                     // 目标速度
@@ -54,6 +59,10 @@ namespace FishAndFisher.Fish
 
         // 方向平滑
         private float directionVelocity;               // 方向插值速度
+
+        // Phase2状态
+        private bool isPhase2Mode;                     // 是否处于Phase2模式
+        private Vector2 phase2DirectionInput;          // Phase2方向输入（归一化）
 
         // 属性访问器
         public float CurrentSpeed => currentSpeed;
@@ -80,20 +89,31 @@ namespace FishAndFisher.Fish
 
         private void Update()
         {
-            // 处理Jump加速状态
-            UpdateJumpBoost();
+            if (isPhase2Mode)
+            {
+                // Phase2模式：只更新朝向和动画，不移动
+                UpdatePhase2Direction();
+                // Jump按键在Phase2仍然影响动画速度
+                UpdateJumpBoost();
+            }
+            else
+            {
+                // Phase1模式：正常移动逻辑
+                // 处理Jump加速状态
+                UpdateJumpBoost();
 
-            // 更新方向
-            UpdateDirection();
+                // 更新方向
+                UpdateDirection();
 
-            // 更新速度
-            UpdateSpeed();
+                // 更新速度
+                UpdateSpeed();
 
-            // 应用移动
-            ApplyMovement();
+                // 应用移动
+                ApplyMovement();
 
-            // 检查边界
-            CheckBoundaries();
+                // 检查边界
+                CheckBoundaries();
+            }
         }
 
         /// <summary>
@@ -242,13 +262,9 @@ namespace FishAndFisher.Fish
                 currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, deceleration * Time.deltaTime);
             }
 
-            // 转向时的速度衰减
-            float angleDiff = Mathf.Abs(Mathf.DeltaAngle(currentDirection, targetDirection));
-            if (angleDiff > 10f)
-            {
-                float dampeningFactor = Mathf.Lerp(1f, turnDampening, angleDiff / 60f);
-                currentSpeed *= dampeningFactor;
-            }
+            // 转向时的速度衰减（注意:这里应该降低目标速度而不是直接修改当前速度）
+            // 移除了原来每帧都乘以dampeningFactor导致速度归零的bug
+            // 如果需要转向衰减,应该修改targetSpeed而不是currentSpeed
         }
 
         /// <summary>
@@ -275,6 +291,15 @@ namespace FishAndFisher.Fish
             if (constrainToPlane)
             {
                 newPosition.y = swimDepth;
+            }
+
+            // 调试输出
+            if (moveInput.magnitude > 0.1f)
+            {
+                Debug.Log($"[ApplyMovement] currentSpeed={currentSpeed:F2}, targetSpeed={targetSpeed:F2}, " +
+                         $"velocity={velocity.magnitude:F2}, moveInput={moveInput}, " +
+                         $"angleDiff={Mathf.Abs(Mathf.DeltaAngle(currentDirection, targetDirection)):F1}, " +
+                         $"isJumpBoosting={isJumpBoosting}");
             }
 
             transform.position = newPosition;
@@ -347,10 +372,92 @@ namespace FishAndFisher.Fish
         }
 
         /// <summary>
+        /// 启用Phase2模式
+        /// </summary>
+        public void EnablePhase2Mode()
+        {
+            isPhase2Mode = true;
+            phase2DirectionInput = Vector2.zero;
+
+            Debug.Log("[FishMovement] Phase2模式已启用");
+        }
+
+        /// <summary>
+        /// 禁用Phase2模式
+        /// </summary>
+        public void DisablePhase2Mode()
+        {
+            isPhase2Mode = false;
+
+            Debug.Log("[FishMovement] Phase2模式已禁用");
+        }
+
+        /// <summary>
+        /// 设置Phase2方向输入（归一化）
+        /// </summary>
+        public void SetPhase2DirectionInput(Vector2 direction)
+        {
+            phase2DirectionInput = direction;
+        }
+
+        /// <summary>
+        /// 更新Phase2朝向
+        /// </summary>
+        private void UpdatePhase2Direction()
+        {
+            // 根据归一化方向输入确定目标角度
+            float targetAngle = currentDirection;
+
+            if (phase2DirectionInput.x > 0.5f)
+            {
+                // 左方向
+                targetAngle = phase2LeftAngle;
+            }
+            else if (phase2DirectionInput.x < -0.5f)
+            {
+                // 右方向
+                targetAngle = phase2RightAngle;
+            }
+
+            // 平滑旋转到目标角度
+            currentDirection = Mathf.MoveTowardsAngle(
+                currentDirection,
+                targetAngle,
+                phase2RotationSpeed * Time.deltaTime
+            );
+
+            // 应用旋转
+            transform.rotation = Quaternion.Euler(0, currentDirection, 0);
+        }
+
+        /// <summary>
+        /// 获取Jump连击等级（用于Phase2动画速度）
+        /// </summary>
+        public int GetJumpComboLevel()
+        {
+            return jumpComboLevel;
+        }
+
+        /// <summary>
+        /// 获取是否正在Jump加速
+        /// </summary>
+        public bool IsJumpBoosting()
+        {
+            return isJumpBoosting;
+        }
+
+        /// <summary>
         /// 获取调试信息
         /// </summary>
         public string GetDebugInfo()
         {
+            if (isPhase2Mode)
+            {
+                return $"[Phase2] Direction: {currentDirection:F0}° | " +
+                       $"Input: {phase2DirectionInput} | " +
+                       $"Jump Combo: {jumpComboLevel}";
+            }
+
             return $"Speed: {currentSpeed:F1}/{maxSpeed:F1} | " +
                    $"Direction: {currentDirection:F0}° | " +
                    $"Jump Combo: {jumpComboLevel} | " +

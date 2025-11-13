@@ -19,10 +19,26 @@ namespace FishAndFisher
         [Tooltip("结果面板UI")]
         [SerializeField] private GameResultUI resultUI;
 
+        [Header("Phase2 UI引用")]
+        [Tooltip("抓到鱼提示UI")]
+        [SerializeField] private FishCaughtNotificationUI fishCaughtUI;
+
+        [Tooltip("Phase2进度条")]
+        [SerializeField] private Phase2.Phase2ProgressBar phase2ProgressBar;
+
+        [Header("Phase2系统")]
+        [Tooltip("Phase2管理器")]
+        [SerializeField] private Phase2.Phase2Manager phase2Manager;
+
         // 游戏状态
         private GameState currentState = GameState.Ready;
         private float remainingTime;
         private bool isGameRunning = false;
+
+        // Phase2相关
+        private float phase2CountdownTime = 3f; // Phase2准备倒计时
+        private float currentCountdown = 0f;
+        private bool isCountingDown = false;
 
         // 单例模式
         private static GameManager instance;
@@ -32,7 +48,7 @@ namespace FishAndFisher
             {
                 if (instance == null)
                 {
-                    instance = FindObjectOfType<GameManager>();
+                    instance = FindFirstObjectByType<GameManager>();
                 }
                 return instance;
             }
@@ -66,6 +82,25 @@ namespace FishAndFisher
             {
                 Debug.LogWarning("[GameManager] 结果面板UI未设置！请在Inspector中分配。");
             }
+
+            if (fishCaughtUI == null)
+            {
+                Debug.LogWarning("[GameManager] 抓到鱼提示UI未设置！请在Inspector中分配。");
+            }
+
+            if (phase2ProgressBar == null)
+            {
+                Debug.LogWarning("[GameManager] Phase2进度条未设置！请在Inspector中分配。");
+            }
+
+            if (phase2Manager == null)
+            {
+                phase2Manager = FindFirstObjectByType<Phase2.Phase2Manager>();
+                if (phase2Manager == null)
+                {
+                    Debug.LogWarning("[GameManager] Phase2管理器未找到！将尝试在运行时查找。");
+                }
+            }
         }
 
         private void Start()
@@ -79,6 +114,12 @@ namespace FishAndFisher
             if (isGameRunning)
             {
                 UpdateTimer();
+            }
+
+            // Phase2倒计时更新
+            if (isCountingDown)
+            {
+                UpdatePhase2Countdown();
             }
         }
 
@@ -151,27 +192,184 @@ namespace FishAndFisher
         }
 
         /// <summary>
-        /// 时间耗尽 - 鱼胜利
+        /// 更新Phase2倒计时
         /// </summary>
-        private void OnTimeUp()
+        private void UpdatePhase2Countdown()
         {
-            Debug.Log("[GameManager] 时间到！鱼胜利！");
-            EndGame(GameResult.FishWins);
+            currentCountdown -= Time.deltaTime;
+
+            // 更新UI显示
+            if (fishCaughtUI != null)
+            {
+                fishCaughtUI.UpdateCountdown(Mathf.CeilToInt(currentCountdown));
+            }
+
+            // 倒计时结束，开始Phase2
+            if (currentCountdown <= 0f)
+            {
+                isCountingDown = false;
+                StartPhase2Struggle();
+            }
         }
 
         /// <summary>
-        /// 渔夫钓到鱼 - 渔夫胜利
+        /// 时间耗尽处理
         /// </summary>
-        public void OnFishCaught()
+        private void OnTimeUp()
+        {
+            // 如果在Phase2争斗阶段,根据进度条位置判断胜负
+            if (currentState == GameState.Phase2Struggle)
+            {
+                if (phase2ProgressBar != null)
+                {
+                    float progress = phase2ProgressBar.GetCurrentProgress();
+                    if (progress < 50f)
+                    {
+                        Debug.Log("[GameManager] 时间到！进度条在左侧，鱼胜利！");
+                        EndGame(GameResult.FishWins);
+                    }
+                    else
+                    {
+                        Debug.Log("[GameManager] 时间到！进度条在右侧，渔夫胜利！");
+                        EndGame(GameResult.FisherWins);
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning("[GameManager] Phase2进度条未设置，默认鱼胜利！");
+                    EndGame(GameResult.FishWins);
+                }
+            }
+            else
+            {
+                // Phase1时间到，鱼直接胜利
+                Debug.Log("[GameManager] 时间到！鱼胜利！");
+                EndGame(GameResult.FishWins);
+            }
+        }
+
+        /// <summary>
+        /// 渔夫钩中鱼 - 进入Phase2准备阶段
+        /// </summary>
+        public void OnFishHooked()
         {
             if (!isGameRunning)
             {
-                Debug.LogWarning("[GameManager] 游戏未运行，无法判定胜负！");
+                Debug.LogWarning("[GameManager] 游戏未运行，无法进入Phase2！");
                 return;
             }
 
-            Debug.Log("[GameManager] 渔夫钓到鱼！渔夫胜利！");
-            EndGame(GameResult.FisherWins);
+            if (currentState != GameState.Playing)
+            {
+                Debug.LogWarning("[GameManager] 当前状态不是Playing，无法进入Phase2！");
+                return;
+            }
+
+            Debug.Log("[GameManager] 渔夫钩中鱼！进入Phase2准备阶段...");
+            StartPhase2Preparation();
+        }
+
+        /// <summary>
+        /// 开始Phase2准备阶段 - 显示提示UI
+        /// </summary>
+        private void StartPhase2Preparation()
+        {
+            currentState = GameState.Phase2Preparation;
+
+            // 显示抓到鱼的提示UI
+            if (fishCaughtUI != null)
+            {
+                fishCaughtUI.Show();
+            }
+            else
+            {
+                Debug.LogError("[GameManager] 抓到鱼提示UI未设置！");
+                // 如果UI未设置，直接开始倒计时
+                StartPhase2Countdown();
+            }
+
+            Debug.Log("[GameManager] Phase2准备阶段开始，等待玩家确认...");
+        }
+
+        /// <summary>
+        /// 开始Phase2倒计时 - 由UI按钮触发
+        /// </summary>
+        public void StartPhase2Countdown()
+        {
+            if (currentState != GameState.Phase2Preparation)
+            {
+                Debug.LogWarning("[GameManager] 当前状态不是Phase2Preparation，无法开始倒计时！");
+                return;
+            }
+
+            Debug.Log("[GameManager] 开始Phase2倒计时...");
+            currentCountdown = phase2CountdownTime;
+            isCountingDown = true;
+        }
+
+        /// <summary>
+        /// 开始Phase2争斗阶段
+        /// </summary>
+        private void StartPhase2Struggle()
+        {
+            currentState = GameState.Phase2Struggle;
+
+            // 隐藏提示UI
+            if (fishCaughtUI != null)
+            {
+                fishCaughtUI.Hide();
+            }
+
+            // 通过Phase2Manager启动所有Phase2系统
+            if (phase2Manager != null)
+            {
+                phase2Manager.StartPhase2();
+            }
+            else
+            {
+                // 后备方案：手动启动进度条
+                if (phase2ProgressBar != null)
+                {
+                    phase2ProgressBar.StartStruggle();
+                }
+                else
+                {
+                    Debug.LogError("[GameManager] Phase2进度条未设置！");
+                }
+            }
+
+            Debug.Log("[GameManager] Phase2争斗阶段开始！");
+
+            // 通知其他系统进入Phase2
+            OnPhase2Started();
+        }
+
+        /// <summary>
+        /// Phase2进度条达到边界 - 判定胜负
+        /// </summary>
+        public void OnPhase2ProgressComplete(bool fisherWins)
+        {
+            if (currentState != GameState.Phase2Struggle)
+            {
+                return;
+            }
+
+            // 结束Phase2系统
+            if (phase2Manager != null)
+            {
+                phase2Manager.EndPhase2();
+            }
+
+            if (fisherWins)
+            {
+                Debug.Log("[GameManager] 进度条到达右侧！渔夫胜利！");
+                EndGame(GameResult.FisherWins);
+            }
+            else
+            {
+                Debug.Log("[GameManager] 进度条到达左侧！鱼逃脱！鱼胜利！");
+                EndGame(GameResult.FishWins);
+            }
         }
 
         /// <summary>
@@ -235,6 +433,15 @@ namespace FishAndFisher
         }
 
         /// <summary>
+        /// Phase2开始事件
+        /// </summary>
+        private void OnPhase2Started()
+        {
+            // 通知鱼和渔夫控制器进入Phase2模式
+            // 例如：切换相机、改变输入模式、启动Phase2动画等
+        }
+
+        /// <summary>
         /// 游戏结束事件
         /// </summary>
         private void OnGameEnded(GameResult result)
@@ -277,9 +484,11 @@ namespace FishAndFisher
     /// </summary>
     public enum GameState
     {
-        Ready,      // 准备中
-        Playing,    // 游戏中
-        Ended       // 已结束
+        Ready,              // 准备中
+        Playing,            // Phase1游戏中
+        Phase2Preparation,  // Phase2准备阶段（显示提示UI）
+        Phase2Struggle,     // Phase2争斗阶段
+        Ended               // 已结束
     }
 
     /// <summary>

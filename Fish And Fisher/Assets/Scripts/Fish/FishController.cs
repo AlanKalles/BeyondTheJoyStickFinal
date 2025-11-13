@@ -118,6 +118,8 @@ namespace FishAndFisher.Fish
             {
                 fishState.TransitionToState(FishStateType.Escaping);
             }
+
+            Debug.Log("[FishController] 鱼被钩中！");
         }
 
         /// <summary>
@@ -128,6 +130,45 @@ namespace FishAndFisher.Fish
             if (fishState != null)
             {
                 fishState.TransitionToState(FishStateType.Swimming);
+            }
+
+            Debug.Log("[FishController] 鱼成功挣脱！");
+        }
+
+        /// <summary>
+        /// 启用Phase2模式
+        /// </summary>
+        public void EnablePhase2Mode()
+        {
+            if (fishMovement != null)
+            {
+                fishMovement.EnablePhase2Mode();
+            }
+
+            Debug.Log("[FishController] Phase2模式已启用");
+        }
+
+        /// <summary>
+        /// 禁用Phase2模式
+        /// </summary>
+        public void DisablePhase2Mode()
+        {
+            if (fishMovement != null)
+            {
+                fishMovement.DisablePhase2Mode();
+            }
+
+            Debug.Log("[FishController] Phase2模式已禁用");
+        }
+
+        /// <summary>
+        /// 设置Phase2方向输入
+        /// </summary>
+        public void SetPhase2DirectionInput(Vector2 direction)
+        {
+            if (fishMovement != null)
+            {
+                fishMovement.SetPhase2DirectionInput(direction);
             }
         }
     }

@@ -33,7 +33,7 @@ namespace FishAndFisher
             {
                 if (instance == null)
                 {
-                    instance = FindObjectOfType<GameBoundary>();
+                    instance = FindFirstObjectByType<GameBoundary>();
                     if (instance == null)
                     {
                         Debug.LogWarning("场景中未找到 GameBoundary！请通过菜单创建：GameObject > Fish And Fisher > Create Game Boundary");
