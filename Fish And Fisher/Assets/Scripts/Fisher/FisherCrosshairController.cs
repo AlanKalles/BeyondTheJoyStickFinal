@@ -44,6 +44,9 @@ namespace FishAndFisher.Fisher
         [Tooltip("用于射线检测的相机")]
         [SerializeField] private Camera targetCamera;
 
+        [Tooltip("相机的 RectTransform（用于分屏时限制鼠标区域）")]
+        [SerializeField] private RectTransform cameraRectTransform;
+
         // 目标位置（逻辑准心的目标XZ坐标）
         private Vector3 targetLogicPosition;
 
@@ -128,8 +131,44 @@ namespace FishAndFisher.Fisher
         {
             if (targetCamera == null) return;
 
-            // 从 InputManager 获取鼠标位置
+            // 从 InputManager 获取鼠标位置（全屏坐标）
             Vector2 mouseScreenPosition = InputManager.Instance.GetLookPosition();
+
+            // 如果设置了 RectTransform，将鼠标位置转换为相机视口内的相对位置
+            if (cameraRectTransform != null)
+            {
+                // 检查鼠标是否在相机的 RectTransform 范围内
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    cameraRectTransform,
+                    mouseScreenPosition,
+                    null, // 对于 Overlay Canvas 使用 null
+                    out Vector2 localPoint))
+                {
+                    // 获取 RectTransform 的尺寸
+                    Rect rect = cameraRectTransform.rect;
+
+                    // 将本地坐标转换为归一化视口坐标 (0-1)
+                    Vector2 normalizedPoint = new Vector2(
+                        (localPoint.x - rect.xMin) / rect.width,
+                        (localPoint.y - rect.yMin) / rect.height
+                    );
+
+                    // 限制在 0-1 范围内
+                    normalizedPoint.x = Mathf.Clamp01(normalizedPoint.x);
+                    normalizedPoint.y = Mathf.Clamp01(normalizedPoint.y);
+
+                    // 将归一化坐标转换为相机的屏幕坐标
+                    mouseScreenPosition = new Vector2(
+                        normalizedPoint.x * targetCamera.pixelWidth,
+                        normalizedPoint.y * targetCamera.pixelHeight
+                    );
+                }
+                else
+                {
+                    // 鼠标不在 RectTransform 范围内，不更新位置
+                    return;
+                }
+            }
 
             // 从相机发射射线到鼠标位置
             Ray ray = targetCamera.ScreenPointToRay(mouseScreenPosition);
