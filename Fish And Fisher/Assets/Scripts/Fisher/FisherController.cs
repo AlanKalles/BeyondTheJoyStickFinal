@@ -1,10 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FishAndFisher.Input; // 引入新的输入管理命名空间
 
 namespace FishAndFisher.Fisher
 {
     /// <summary>
     /// 渔夫主控制器 - 管理渔夫的整体行为和鱼竿操作
+    /// 使用 InputManager 支持键盘和 ESP32 输入
     /// </summary>
     [RequireComponent(typeof(FisherCrosshairController))]
     public class FisherController : MonoBehaviour
@@ -41,12 +43,12 @@ namespace FishAndFisher.Fisher
 
         // 组件引用
         private FisherCrosshairController crosshairController;
-        private InputSystem_Actions inputActions;
 
         // 鱼竿状态
         private bool isSwinging = false;
         private float lastSwingTime = -999f;
         private float swingTimer = 0f;
+        private bool wasAttackPressed = false; // 上一帧的攻击按钮状态
 
         // Phase2状态
         private bool isPhase2Mode = false;
@@ -57,28 +59,21 @@ namespace FishAndFisher.Fisher
         {
             // 获取准心控制器
             crosshairController = GetComponent<FisherCrosshairController>();
-
-            // 初始化输入系统
-            inputActions = new InputSystem_Actions();
-        }
-
-        private void OnEnable()
-        {
-            inputActions.Enable();
-
-            // 订阅Attack输入
-            inputActions.Player.Attack.performed += OnAttackPerformed;
-        }
-
-        private void OnDisable()
-        {
-            inputActions.Player.Attack.performed -= OnAttackPerformed;
-
-            inputActions.Disable();
         }
 
         private void Update()
         {
+            // 从 InputManager 检测攻击按钮（仅在按下时触发一次）
+            bool isAttackPressed = InputManager.Instance.GetAttackPressed();
+
+            if (isAttackPressed && !wasAttackPressed)
+            {
+                // 按钮刚按下
+                TrySwingRod();
+            }
+
+            wasAttackPressed = isAttackPressed;
+
             if (isPhase2Mode)
             {
                 // Phase2模式：更新鱼竿旋转
@@ -92,14 +87,6 @@ namespace FishAndFisher.Fisher
                     UpdateSwingAnimation();
                 }
             }
-        }
-
-        /// <summary>
-        /// Attack输入回调 - 挥动鱼竿
-        /// </summary>
-        private void OnAttackPerformed(InputAction.CallbackContext context)
-        {
-            TrySwingRod();
         }
 
         /// <summary>
@@ -243,10 +230,23 @@ namespace FishAndFisher.Fisher
             {
                 Debug.Log("[FisherController] 钩住了鱼！进入Phase2准备阶段");
 
-                // 通知GameManager进入Phase2（不再直接判定胜负）
+                // 获取钩子位置（逻辑准心的位置）
+                Vector3 hookPosition = Vector3.zero;
+                if (crosshairController != null)
+                {
+                    hookPosition = crosshairController.GetLogicCrosshairPosition();
+                }
+                else
+                {
+                    // 备用方案：使用当前Transform位置
+                    hookPosition = transform.position;
+                    Debug.LogWarning("[FisherController] 无法获取逻辑准心位置，使用FisherController位置");
+                }
+
+                // 通知GameManager进入Phase2（传递钩子位置）
                 if (GameManager.Instance != null)
                 {
-                    GameManager.Instance.OnFishHooked();
+                    GameManager.Instance.OnFishHooked(hookPosition);
                 }
                 else
                 {

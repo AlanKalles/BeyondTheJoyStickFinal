@@ -3,7 +3,17 @@ using UnityEngine;
 namespace FishAndFisher.Phase2
 {
     /// <summary>
+    /// 游戏结果枚举（Phase2使用）
+    /// </summary>
+    public enum GameResult
+    {
+        FishWins,   // 鱼胜利
+        FisherWins  // 渔夫胜利
+    }
+
+    /// <summary>
     /// Phase2管理器 - 统一管理Phase2的所有子系统
+    /// 包括倒计时、胜负判定、结果显示
     /// </summary>
     public class Phase2Manager : MonoBehaviour
     {
@@ -16,9 +26,6 @@ namespace FishAndFisher.Phase2
 
         [Tooltip("进度条逻辑")]
         [SerializeField] private Phase2ProgressBar progressBar;
-
-        [Tooltip("相机控制器")]
-        [SerializeField] private Phase2CameraController cameraController;
 
         [Tooltip("音效管理器")]
         [SerializeField] private Phase2AudioManager audioManager;
@@ -33,6 +40,16 @@ namespace FishAndFisher.Phase2
         [Header("UI引用")]
         [Tooltip("进度条UI")]
         [SerializeField] private Phase2ProgressBarUI progressBarUI;
+
+        [Tooltip("计时器UI")]
+        [SerializeField] private GameTimerUI timerUI;
+
+        [Tooltip("结果UI")]
+        [SerializeField] private GameResultUI resultUI;
+
+        // Phase2倒计时
+        private float remainingTime;
+        private bool isPhase2Running = false;
 
         // 单例模式
         private static Phase2Manager instance;
@@ -53,6 +70,27 @@ namespace FishAndFisher.Phase2
 
             // 自动查找组件（如果未设置）
             AutoFindComponents();
+
+            // 从Phase2DataTransfer读取剩余时间
+            InitializeFromDataTransfer();
+        }
+
+        /// <summary>
+        /// 从Phase2DataTransfer初始化数据
+        /// </summary>
+        private void InitializeFromDataTransfer()
+        {
+            var dataTransfer = Phase2DataTransfer.Instance;
+            if (dataTransfer != null)
+            {
+                remainingTime = dataTransfer.RemainingTime;
+                Debug.Log($"[Phase2Manager] 从DataTransfer读取剩余时间：{remainingTime:F1}秒");
+            }
+            else
+            {
+                Debug.LogError("[Phase2Manager] Phase2DataTransfer未找到！使用默认时间60秒");
+                remainingTime = 60f;
+            }
         }
 
         /// <summary>
@@ -87,11 +125,6 @@ namespace FishAndFisher.Phase2
                 }
             }
 
-            if (cameraController == null)
-            {
-                cameraController = FindFirstObjectByType<Phase2CameraController>();
-            }
-
             if (audioManager == null)
             {
                 audioManager = FindFirstObjectByType<Phase2AudioManager>();
@@ -111,6 +144,16 @@ namespace FishAndFisher.Phase2
             {
                 fisherController = FindFirstObjectByType<Fisher.FisherController>();
             }
+
+            if (timerUI == null)
+            {
+                timerUI = FindFirstObjectByType<GameTimerUI>();
+            }
+
+            if (resultUI == null)
+            {
+                resultUI = FindFirstObjectByType<GameResultUI>();
+            }
         }
 
         /// <summary>
@@ -119,6 +162,8 @@ namespace FishAndFisher.Phase2
         public void StartPhase2()
         {
             Debug.Log("[Phase2Manager] 开始Phase2争斗阶段");
+
+            isPhase2Running = true;
 
             // 1. 启用输入归一化
             if (inputNormalizer != null)
@@ -137,14 +182,12 @@ namespace FishAndFisher.Phase2
             {
                 progressBarUI.Show();
             }
-
-            // 4. 切换相机
-            if (cameraController != null)
+            else
             {
-                cameraController.SwitchToPhase2Cameras();
+                Debug.LogWarning("[Phase2Manager] 进度条UI未设置！");
             }
 
-            // 5. 启用玩家Phase2模式
+            // 4. 启用玩家Phase2模式
             if (fishController != null)
             {
                 fishController.EnablePhase2Mode();
@@ -155,17 +198,23 @@ namespace FishAndFisher.Phase2
                 fisherController.EnablePhase2Mode();
             }
 
-            // 6. 播放Phase2开始音效
+            // 5. 播放Phase2开始音效
             if (audioManager != null)
             {
                 audioManager.PlayPhase2StartSound();
                 audioManager.PlayStruggleLoopSound();
             }
 
-            // 7. 启动进度条逻辑
+            // 6. 启动进度条逻辑
             if (progressBar != null)
             {
                 progressBar.StartStruggle();
+            }
+
+            // 7. 显示计时器UI并开始倒计时
+            if (timerUI != null)
+            {
+                timerUI.UpdateTimer(remainingTime);
             }
         }
 
@@ -175,6 +224,8 @@ namespace FishAndFisher.Phase2
         public void EndPhase2()
         {
             Debug.Log("[Phase2Manager] Phase2争斗阶段结束");
+
+            isPhase2Running = false;
 
             // 1. 停用输入归一化
             if (inputNormalizer != null)
@@ -219,14 +270,103 @@ namespace FishAndFisher.Phase2
         }
 
         /// <summary>
-        /// 更新Phase2系统（如果需要手动更新）
+        /// 进度条完成回调（由Phase2ProgressBar调用）
+        /// </summary>
+        /// <param name="fisherWins">渔夫是否胜利</param>
+        public void OnProgressComplete(bool fisherWins)
+        {
+            Debug.Log($"[Phase2Manager] 进度条判定完成：{(fisherWins ? "渔夫胜利" : "鱼胜利")}");
+
+            // 结束Phase2系统
+            EndPhase2();
+
+            // 显示结果
+            ShowGameResult(fisherWins ? GameResult.FisherWins : GameResult.FishWins);
+        }
+
+        /// <summary>
+        /// 时间到回调
+        /// </summary>
+        private void OnTimeUp()
+        {
+            Debug.Log("[Phase2Manager] 时间到！根据进度条位置判定胜负");
+
+            // 结束Phase2系统
+            EndPhase2();
+
+            // 根据进度条位置判定胜负
+            if (progressBar != null)
+            {
+                float progress = progressBar.GetCurrentProgress();
+                bool fisherWins = progress >= 50f;
+                Debug.Log($"[Phase2Manager] 进度条位置：{progress:F1}，{(fisherWins ? "渔夫胜利" : "鱼胜利")}");
+                ShowGameResult(fisherWins ? GameResult.FisherWins : GameResult.FishWins);
+            }
+            else
+            {
+                Debug.LogWarning("[Phase2Manager] 进度条未找到，默认鱼胜利");
+                ShowGameResult(GameResult.FishWins);
+            }
+        }
+
+        /// <summary>
+        /// 显示游戏结果
+        /// </summary>
+        private void ShowGameResult(GameResult result)
+        {
+            Debug.Log($"[Phase2Manager] 显示游戏结果：{result}");
+
+            if (resultUI != null)
+            {
+                resultUI.ShowResult(result);
+            }
+            else
+            {
+                Debug.LogError("[Phase2Manager] 结果UI未设置！");
+            }
+
+            // Phase2结束后销毁Phase2DataTransfer
+            Phase2DataTransfer.DestroyInstance();
+        }
+
+        /// <summary>
+        /// 更新Phase2系统
         /// </summary>
         private void Update()
         {
+            if (!isPhase2Running)
+            {
+                return;
+            }
+
+            // 更新倒计时
+            UpdateTimer();
+
             // Phase2期间，将输入归一化器的方向同步到鱼玩家
             if (inputNormalizer != null && fishController != null)
             {
                 fishController.SetPhase2DirectionInput(inputNormalizer.FishDirection);
+            }
+        }
+
+        /// <summary>
+        /// 更新计时器
+        /// </summary>
+        private void UpdateTimer()
+        {
+            remainingTime -= Time.deltaTime;
+
+            // 更新UI
+            if (timerUI != null)
+            {
+                timerUI.UpdateTimer(remainingTime);
+            }
+
+            // 检查时间是否耗尽
+            if (remainingTime <= 0f)
+            {
+                remainingTime = 0f;
+                OnTimeUp();
             }
         }
     }

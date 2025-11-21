@@ -1,10 +1,12 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FishAndFisher.Input; // 引入新的输入管理命名空间
 
 namespace FishAndFisher.Fisher
 {
     /// <summary>
     /// 渔夫准心控制器 - 管理逻辑准心和视觉准心的双Transform系统
+    /// 使用 InputManager 支持键盘和 ESP32 输入
     /// </summary>
     public class FisherCrosshairController : MonoBehaviour
     {
@@ -16,11 +18,17 @@ namespace FishAndFisher.Fisher
         [SerializeField] private Transform visualCrosshair;
 
         [Header("平面设置")]
-        [Tooltip("鱼所在平面的Y坐标（逻辑准心的固定高度）")]
+        [Tooltip("是否使用全局游戏平面高度（GameBoundary.GamePlaneY）")]
+        [SerializeField] private bool useGlobalPlaneHeight = true;
+
+        [Tooltip("鱼所在平面的Y坐标（逻辑准心的固定高度，仅在不使用全局平面时有效）")]
         [SerializeField] private float fishPlaneY = 0f;
 
         [Tooltip("视觉准心Quad平面的Y坐标")]
         [SerializeField] private float visualPlaneY = 5f;
+
+        // 运行时的实际平面高度
+        private float actualFishPlaneY;
 
         [Header("移动设置")]
         [Tooltip("使用全局边界（GameBoundary）")]
@@ -36,18 +44,11 @@ namespace FishAndFisher.Fisher
         [Tooltip("用于射线检测的相机")]
         [SerializeField] private Camera targetCamera;
 
-        // 输入系统
-        private InputSystem_Actions inputActions;
-        private Vector2 mousePosition;
-
         // 目标位置（逻辑准心的目标XZ坐标）
         private Vector3 targetLogicPosition;
 
         private void Awake()
         {
-            // 初始化输入系统
-            inputActions = new InputSystem_Actions();
-
             // 如果没有指定相机，使用主相机
             if (targetCamera == null)
             {
@@ -66,34 +67,46 @@ namespace FishAndFisher.Fisher
             }
         }
 
-        private void OnEnable()
-        {
-            inputActions.Enable();
-
-            // 订阅Look输入（使用鼠标位置）
-            inputActions.Player.Look.performed += OnLookPerformed;
-            inputActions.Player.Look.canceled += OnLookCanceled;
-        }
-
-        private void OnDisable()
-        {
-            inputActions.Player.Look.performed -= OnLookPerformed;
-            inputActions.Player.Look.canceled -= OnLookCanceled;
-
-            inputActions.Disable();
-        }
-
         private void Start()
         {
+            // 确定实际平面高度
+            UpdateActualFishPlaneY();
+
             // 初始化准心位置（世界坐标原点）
             if (logicCrosshair != null)
             {
-                targetLogicPosition = new Vector3(0, fishPlaneY, 0);
+                targetLogicPosition = new Vector3(0, actualFishPlaneY, 0);
                 logicCrosshair.position = targetLogicPosition;
             }
 
             // 同步视觉准心
             SyncVisualCrosshair();
+        }
+
+        /// <summary>
+        /// 更新实际平面高度（根据配置选择全局或手动设置）
+        /// </summary>
+        private void UpdateActualFishPlaneY()
+        {
+            if (useGlobalPlaneHeight && GameBoundary.Instance != null)
+            {
+                actualFishPlaneY = GameBoundary.Instance.GamePlaneY;
+
+                // 如果手动设置的值与全局值不一致，发出警告
+                if (Mathf.Abs(fishPlaneY - actualFishPlaneY) > 0.01f)
+                {
+                    Debug.LogWarning($"[FisherCrosshairController] 使用全局平面高度 {actualFishPlaneY}，忽略手动设置的 fishPlaneY={fishPlaneY}");
+                }
+            }
+            else
+            {
+                actualFishPlaneY = fishPlaneY;
+
+                if (useGlobalPlaneHeight && GameBoundary.Instance == null)
+                {
+                    Debug.LogWarning("[FisherCrosshairController] 未找到 GameBoundary，回退使用手动设置的 fishPlaneY");
+                }
+            }
         }
 
         private void Update()
@@ -109,33 +122,20 @@ namespace FishAndFisher.Fisher
         }
 
         /// <summary>
-        /// 鼠标Look输入回调
-        /// </summary>
-        private void OnLookPerformed(InputAction.CallbackContext context)
-        {
-            mousePosition = context.ReadValue<Vector2>();
-        }
-
-        /// <summary>
-        /// 鼠标Look取消回调
-        /// </summary>
-        private void OnLookCanceled(InputAction.CallbackContext context)
-        {
-            mousePosition = Vector2.zero;
-        }
-
-        /// <summary>
-        /// 通过鼠标位置更新准心目标位置
+        /// 通过 InputManager 获取鼠标位置并更新准心目标位置
         /// </summary>
         private void UpdateCrosshairPosition()
         {
             if (targetCamera == null) return;
 
-            // 从相机发射射线到鼠标位置
-            Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+            // 从 InputManager 获取鼠标位置
+            Vector2 mouseScreenPosition = InputManager.Instance.GetLookPosition();
 
-            // 创建鱼平面（Y = fishPlaneY的水平面）
-            Plane fishPlane = new Plane(Vector3.up, new Vector3(0, fishPlaneY, 0));
+            // 从相机发射射线到鼠标位置
+            Ray ray = targetCamera.ScreenPointToRay(mouseScreenPosition);
+
+            // 创建鱼平面（Y = actualFishPlaneY的水平面）
+            Plane fishPlane = new Plane(Vector3.up, new Vector3(0, actualFishPlaneY, 0));
 
             // 检测射线与平面的交点
             if (fishPlane.Raycast(ray, out float distance))
@@ -149,7 +149,7 @@ namespace FishAndFisher.Fisher
                     hitPoint = GameBoundary.Instance.ClampPointToBounds(hitPoint);
                 }
 
-                hitPoint.y = fishPlaneY; // 确保Y坐标固定
+                hitPoint.y = actualFishPlaneY; // 确保Y坐标固定
 
                 // 更新目标位置
                 targetLogicPosition = hitPoint;

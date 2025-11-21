@@ -3,12 +3,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FishAndFisher.Input; // 引入新的输入管理命名空间
 
 namespace FishAndFisher.Fish
 {
     /// <summary>
     /// 鱼玩家的输入处理器
-    /// 负责接收和处理来自InputSystem的输入
+    /// 负责接收和处理来自 InputManager 的输入（支持键盘和 ESP32）
     /// </summary>
     public class FishInputHandler : MonoBehaviour
     {
@@ -27,16 +28,12 @@ namespace FishAndFisher.Fish
         [SerializeField] private Vector2 rawInput;                 // 原始输入
         [SerializeField] private Vector2 processedInput;           // 处理后的输入
 
-        // InputSystem引用
-        private InputSystem_Actions inputActions;
-        private InputAction moveAction;
-        private InputAction jumpAction;
-
         // 输入状态
         private Vector2 currentInput;
         private Vector2 targetInput;
         private Vector2 inputVelocity;
         private bool isJumpPressed;
+        private bool wasJumpPressed; // 上一帧的跳跃状态，用于检测状态变化
         private float lastJumpTime;
 
         // 事件
@@ -46,74 +43,39 @@ namespace FishAndFisher.Fish
         public event Action OnInputDisabled;
 
         // 属性访问器
-        public bool IsInputEnabled => enableInput && inputActions != null && inputActions.asset.enabled;
+        public bool IsInputEnabled => enableInput;
         public Vector2 CurrentInput => currentInput;
         public bool IsJumping => isJumpPressed;
-
-        private void Awake()
-        {
-            // 创建输入动作实例
-            inputActions = new InputSystem_Actions();
-        }
-
-        private void OnEnable()
-        {
-            // 启用输入动作
-            if (inputActions != null)
-            {
-                inputActions.Enable();
-
-                // 获取动作引用
-                moveAction = inputActions.Player.Move;
-                jumpAction = inputActions.Player.Jump;
-
-                // 订阅输入事件
-                if (moveAction != null)
-                {
-                    moveAction.performed += OnMove;
-                    moveAction.canceled += OnMove;
-                }
-
-                if (jumpAction != null)
-                {
-                    jumpAction.performed += OnJump;
-                    jumpAction.canceled += OnJump;
-                }
-
-                Debug.Log("鱼玩家输入系统已启用");
-            }
-        }
-
-        private void OnDisable()
-        {
-            // 取消订阅并禁用输入动作
-            if (inputActions != null)
-            {
-                if (moveAction != null)
-                {
-                    moveAction.performed -= OnMove;
-                    moveAction.canceled -= OnMove;
-                }
-
-                if (jumpAction != null)
-                {
-                    jumpAction.performed -= OnJump;
-                    jumpAction.canceled -= OnJump;
-                }
-
-                inputActions.Disable();
-            }
-        }
-
-        private void OnDestroy()
-        {
-            // 清理输入动作
-            inputActions?.Dispose();
-        }
 
         private void Update()
         {
             if (!enableInput) return;
+
+            // 从 InputManager 获取原始输入
+            Vector2 input = InputManager.Instance.GetMovement();
+            rawInput = input;
+
+            // 应用死区
+            if (input.magnitude < inputDeadZone)
+            {
+                input = Vector2.zero;
+            }
+            else
+            {
+                // 重新映射输入范围
+                float magnitude = (input.magnitude - inputDeadZone) / (1 - inputDeadZone);
+                input = input.normalized * magnitude;
+            }
+
+            // 应用反转
+            if (invertX) input.x *= -1;
+            if (invertY) input.y *= -1;
+
+            // 限制输入范围
+            input.x = Mathf.Clamp(input.x, -1f, 1f);
+            input.y = Mathf.Clamp(input.y, -1f, 1f);
+
+            targetInput = input;
 
             // 处理输入平滑
             if (smoothInput)
@@ -139,58 +101,11 @@ namespace FishAndFisher.Fish
                 OnMoveInput?.Invoke(currentInput);
             }
 
-            // 调试输出
-            if (debugInput && (currentInput.magnitude > 0.01f || isJumpPressed))
-            {
-                Debug.Log($"Fish Input - Move: {currentInput}, Jump: {isJumpPressed}");
-            }
-        }
+            // 处理跳跃输入（从 InputManager 获取）
+            isJumpPressed = InputManager.Instance.GetJumpPressed();
 
-        /// <summary>
-        /// 处理移动输入
-        /// </summary>
-        private void OnMove(InputAction.CallbackContext context)
-        {
-            if (!enableInput) return;
-
-            Vector2 input = context.ReadValue<Vector2>();
-            rawInput = input;
-
-            // 应用死区
-            if (input.magnitude < inputDeadZone)
-            {
-                input = Vector2.zero;
-            }
-            else
-            {
-                // 重新映射输入范围
-                float magnitude = (input.magnitude - inputDeadZone) / (1 - inputDeadZone);
-                input = input.normalized * magnitude;
-            }
-
-            // 应用反转
-            if (invertX) input.x *= -1;
-            if (invertY) input.y *= -1;
-
-            // 限制输入范围
-            input.x = Mathf.Clamp(input.x, -1f, 1f);
-            input.y = Mathf.Clamp(input.y, -1f, 1f);
-
-            targetInput = input;
-        }
-
-        /// <summary>
-        /// 处理跳跃输入
-        /// </summary>
-        private void OnJump(InputAction.CallbackContext context)
-        {
-            if (!enableInput) return;
-
-            bool wasPressed = isJumpPressed;
-            isJumpPressed = context.performed;
-
-            // 只在状态改变时触发事件
-            if (isJumpPressed != wasPressed)
+            // 检测跳跃状态变化
+            if (isJumpPressed != wasJumpPressed)
             {
                 OnJumpInput?.Invoke(isJumpPressed);
 
@@ -198,6 +113,14 @@ namespace FishAndFisher.Fish
                 {
                     lastJumpTime = Time.time;
                 }
+
+                wasJumpPressed = isJumpPressed;
+            }
+
+            // 调试输出
+            if (debugInput && (currentInput.magnitude > 0.01f || isJumpPressed))
+            {
+                Debug.Log($"Fish Input - Move: {currentInput}, Jump: {isJumpPressed}, Device: {InputManager.Instance.GetCurrentDeviceName()}");
             }
         }
 
@@ -209,7 +132,6 @@ namespace FishAndFisher.Fish
             if (enableInput) return;
 
             enableInput = true;
-            inputActions?.Enable();
             OnInputEnabled?.Invoke();
 
             Debug.Log("鱼玩家输入已启用");
@@ -226,6 +148,7 @@ namespace FishAndFisher.Fish
             currentInput = Vector2.zero;
             targetInput = Vector2.zero;
             isJumpPressed = false;
+            wasJumpPressed = false;
 
             OnInputDisabled?.Invoke();
 

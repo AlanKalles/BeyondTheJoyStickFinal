@@ -56,6 +56,19 @@ Shader "Custom/URP/SpriteScrolling"
                 half4 _Color;
             CBUFFER_END
 
+            // URP中的PixelSnap实现
+            float4 UnityPixelSnap(float4 pos)
+            {
+                float2 hpc = _ScreenParams.xy * 0.5;
+                #if UNITY_UV_STARTS_AT_TOP
+                float2 pixelPos = round((pos.xy / pos.w) * hpc);
+                #else
+                float2 pixelPos = round((pos.xy / pos.w) * hpc);
+                #endif
+                pos.xy = pixelPos / hpc * pos.w;
+                return pos;
+            }
+
             v2f vert(appdata_t IN)
             {
                 v2f OUT;

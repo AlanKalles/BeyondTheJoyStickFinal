@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using FishAndFisher.Phase2;
 
 namespace FishAndFisher
 {
@@ -220,13 +221,16 @@ namespace FishAndFisher
         {
             Debug.Log("[GameResultUI] 点击重新开始");
 
+            // 优先尝试GameManager（Phase1），然后尝试通过场景管理器重启（Phase2）
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.RestartGame();
             }
             else
             {
-                Debug.LogError("[GameResultUI] GameManager不存在！");
+                // Phase2场景中，直接重新加载Main场景
+                Debug.Log("[GameResultUI] 从Phase2返回Main场景");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Main");
             }
         }
 
@@ -237,13 +241,19 @@ namespace FishAndFisher
         {
             Debug.Log("[GameResultUI] 点击退出");
 
+            // 优先尝试GameManager，否则直接退出
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.QuitGame();
             }
             else
             {
-                Debug.LogError("[GameResultUI] GameManager不存在！");
+                Debug.Log("[GameResultUI] 退出游戏");
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
             }
         }
 

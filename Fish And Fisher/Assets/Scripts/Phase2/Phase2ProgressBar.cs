@@ -229,13 +229,15 @@ namespace FishAndFisher.Phase2
             {
                 // 鱼胜利
                 isStruggling = false;
-                GameManager.Instance?.OnPhase2ProgressComplete(false);
+                Debug.Log("[Phase2ProgressBar] 进度条到达左侧边界！鱼胜利！");
+                Phase2Manager.Instance?.OnProgressComplete(false);
             }
             else if (currentProgress >= maxProgress)
             {
                 // 渔夫胜利
                 isStruggling = false;
-                GameManager.Instance?.OnPhase2ProgressComplete(true);
+                Debug.Log("[Phase2ProgressBar] 进度条到达右侧边界！渔夫胜利！");
+                Phase2Manager.Instance?.OnProgressComplete(true);
             }
         }
 

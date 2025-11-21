@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using FishAndFisher.Phase2;
 
 namespace FishAndFisher
 {
@@ -16,29 +17,21 @@ namespace FishAndFisher
         [Tooltip("计时器UI")]
         [SerializeField] private GameTimerUI timerUI;
 
-        [Tooltip("结果面板UI")]
-        [SerializeField] private GameResultUI resultUI;
-
         [Header("Phase2 UI引用")]
         [Tooltip("抓到鱼提示UI")]
         [SerializeField] private FishCaughtNotificationUI fishCaughtUI;
 
-        [Tooltip("Phase2进度条")]
-        [SerializeField] private Phase2.Phase2ProgressBar phase2ProgressBar;
+        [Tooltip("转场UI（用于场景切换）")]
+        [SerializeField] private Phase2TransitionUI transitionUI;
 
-        [Header("Phase2系统")]
-        [Tooltip("Phase2管理器")]
-        [SerializeField] private Phase2.Phase2Manager phase2Manager;
+        [Header("Phase2场景设置")]
+        [Tooltip("Phase2场景名称")]
+        [SerializeField] private string phase2SceneName = "Phase2";
 
         // 游戏状态
         private GameState currentState = GameState.Ready;
         private float remainingTime;
         private bool isGameRunning = false;
-
-        // Phase2相关
-        private float phase2CountdownTime = 3f; // Phase2准备倒计时
-        private float currentCountdown = 0f;
-        private bool isCountingDown = false;
 
         // 单例模式
         private static GameManager instance;
@@ -78,35 +71,36 @@ namespace FishAndFisher
                 Debug.LogWarning("[GameManager] 计时器UI未设置！请在Inspector中分配。");
             }
 
-            if (resultUI == null)
-            {
-                Debug.LogWarning("[GameManager] 结果面板UI未设置！请在Inspector中分配。");
-            }
-
             if (fishCaughtUI == null)
             {
                 Debug.LogWarning("[GameManager] 抓到鱼提示UI未设置！请在Inspector中分配。");
             }
 
-            if (phase2ProgressBar == null)
+            if (transitionUI == null)
             {
-                Debug.LogWarning("[GameManager] Phase2进度条未设置！请在Inspector中分配。");
-            }
-
-            if (phase2Manager == null)
-            {
-                phase2Manager = FindFirstObjectByType<Phase2.Phase2Manager>();
-                if (phase2Manager == null)
-                {
-                    Debug.LogWarning("[GameManager] Phase2管理器未找到！将尝试在运行时查找。");
-                }
+                Debug.LogWarning("[GameManager] 转场UI未设置！请在Inspector中分配。");
             }
         }
 
         private void Start()
         {
+            // 注册FishCaughtNotificationUI的自动转场事件
+            if (fishCaughtUI != null)
+            {
+                fishCaughtUI.OnAutoTransition += OnAutoTransitionTriggered;
+            }
+
             // 初始化游戏
             InitializeGame();
+        }
+
+        private void OnDestroy()
+        {
+            // 取消注册事件
+            if (fishCaughtUI != null)
+            {
+                fishCaughtUI.OnAutoTransition -= OnAutoTransitionTriggered;
+            }
         }
 
         private void Update()
@@ -114,12 +108,6 @@ namespace FishAndFisher
             if (isGameRunning)
             {
                 UpdateTimer();
-            }
-
-            // Phase2倒计时更新
-            if (isCountingDown)
-            {
-                UpdatePhase2Countdown();
             }
         }
 
@@ -130,12 +118,6 @@ namespace FishAndFisher
         {
             remainingTime = gameDuration;
             currentState = GameState.Ready;
-
-            // 隐藏结果面板
-            if (resultUI != null)
-            {
-                resultUI.Hide();
-            }
 
             // 更新计时器显示
             if (timerUI != null)
@@ -165,9 +147,6 @@ namespace FishAndFisher
             remainingTime = gameDuration;
 
             Debug.Log("[GameManager] 游戏开始！");
-
-            // 通知其他系统游戏开始
-            OnGameStarted();
         }
 
         /// <summary>
@@ -192,66 +171,28 @@ namespace FishAndFisher
         }
 
         /// <summary>
-        /// 更新Phase2倒计时
-        /// </summary>
-        private void UpdatePhase2Countdown()
-        {
-            currentCountdown -= Time.deltaTime;
-
-            // 更新UI显示
-            if (fishCaughtUI != null)
-            {
-                fishCaughtUI.UpdateCountdown(Mathf.CeilToInt(currentCountdown));
-            }
-
-            // 倒计时结束，开始Phase2
-            if (currentCountdown <= 0f)
-            {
-                isCountingDown = false;
-                StartPhase2Struggle();
-            }
-        }
-
-        /// <summary>
-        /// 时间耗尽处理
+        /// 时间耗尽处理（Phase1专用）
         /// </summary>
         private void OnTimeUp()
         {
-            // 如果在Phase2争斗阶段,根据进度条位置判断胜负
-            if (currentState == GameState.Phase2Struggle)
-            {
-                if (phase2ProgressBar != null)
-                {
-                    float progress = phase2ProgressBar.GetCurrentProgress();
-                    if (progress < 50f)
-                    {
-                        Debug.Log("[GameManager] 时间到！进度条在左侧，鱼胜利！");
-                        EndGame(GameResult.FishWins);
-                    }
-                    else
-                    {
-                        Debug.Log("[GameManager] 时间到！进度条在右侧，渔夫胜利！");
-                        EndGame(GameResult.FisherWins);
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning("[GameManager] Phase2进度条未设置，默认鱼胜利！");
-                    EndGame(GameResult.FishWins);
-                }
-            }
-            else
-            {
-                // Phase1时间到，鱼直接胜利
-                Debug.Log("[GameManager] 时间到！鱼胜利！");
-                EndGame(GameResult.FishWins);
-            }
+            // Phase1时间到，鱼直接胜利
+            Debug.Log("[GameManager] Phase1时间到！鱼胜利！");
+
+            // 停止游戏
+            isGameRunning = false;
+            currentState = GameState.Ended;
+
+            // 注意：这里不显示结果UI，因为会立即进入Phase2
+            // 实际上Phase1时间到意味着渔夫没有抓到鱼，应该显示鱼胜利
+            // 但根据新设计，Phase1不会自然结束（要么被钩住进Phase2，要么时间到鱼胜利）
+            Debug.Log("[GameManager] Phase1结束：时间到，鱼未被抓住");
         }
 
         /// <summary>
-        /// 渔夫钩中鱼 - 进入Phase2准备阶段
+        /// 渔夫钩中鱼 - 进入Phase2准备阶段（保存数据并显示提示UI）
         /// </summary>
-        public void OnFishHooked()
+        /// <param name="hookPosition">钩子位置</param>
+        public void OnFishHooked(Vector3 hookPosition)
         {
             if (!isGameRunning)
             {
@@ -266,140 +207,123 @@ namespace FishAndFisher
             }
 
             Debug.Log("[GameManager] 渔夫钩中鱼！进入Phase2准备阶段...");
+
+            // 保存Phase2数据
+            SavePhase2Data(hookPosition);
+
+            // 显示提示UI
             StartPhase2Preparation();
         }
 
         /// <summary>
-        /// 开始Phase2准备阶段 - 显示提示UI
+        /// 保存Phase2需要的数据到数据传递系统（仅传递剩余时间）
+        /// </summary>
+        private void SavePhase2Data(Vector3 hookPosition)
+        {
+            var dataTransfer = Phase2DataTransfer.Instance;
+            if (dataTransfer != null)
+            {
+                dataTransfer.SaveRemainingTime(remainingTime);
+                Debug.Log($"[GameManager] Phase2数据已保存：剩余时间={remainingTime:F1}秒");
+            }
+            else
+            {
+                Debug.LogError("[GameManager] 无法保存Phase2数据：Phase2DataTransfer未找到！");
+            }
+        }
+
+        /// <summary>
+        /// 开始Phase2准备阶段 - 显示提示UI（1.5秒后自动触发转场）
         /// </summary>
         private void StartPhase2Preparation()
         {
             currentState = GameState.Phase2Preparation;
 
-            // 显示抓到鱼的提示UI
+            // 显示抓到鱼的提示UI（将在1.5秒后自动触发OnAutoTransition事件）
             if (fishCaughtUI != null)
             {
                 fishCaughtUI.Show();
             }
             else
             {
-                Debug.LogError("[GameManager] 抓到鱼提示UI未设置！");
-                // 如果UI未设置，直接开始倒计时
-                StartPhase2Countdown();
+                Debug.LogError("[GameManager] 抓到鱼提示UI未设置！直接开始转场...");
+                // 如果UI未设置，直接开始转场
+                OnAutoTransitionTriggered();
             }
 
-            Debug.Log("[GameManager] Phase2准备阶段开始，等待玩家确认...");
+            Debug.Log("[GameManager] Phase2准备阶段开始，将在1.5秒后自动转场...");
         }
 
         /// <summary>
-        /// 开始Phase2倒计时 - 由UI按钮触发
+        /// FishCaughtNotificationUI自动转场事件回调
         /// </summary>
-        public void StartPhase2Countdown()
+        private void OnAutoTransitionTriggered()
         {
-            if (currentState != GameState.Phase2Preparation)
-            {
-                Debug.LogWarning("[GameManager] 当前状态不是Phase2Preparation，无法开始倒计时！");
-                return;
-            }
-
-            Debug.Log("[GameManager] 开始Phase2倒计时...");
-            currentCountdown = phase2CountdownTime;
-            isCountingDown = true;
+            Debug.Log("[GameManager] 自动转场触发，开始场景切换...");
+            StartTransitionToPhase2();
         }
 
         /// <summary>
-        /// 开始Phase2争斗阶段
+        /// 开始转场到Phase2场景
         /// </summary>
-        private void StartPhase2Struggle()
+        private void StartTransitionToPhase2()
         {
-            currentState = GameState.Phase2Struggle;
-
-            // 隐藏提示UI
-            if (fishCaughtUI != null)
+            if (transitionUI != null)
             {
-                fishCaughtUI.Hide();
-            }
-
-            // 通过Phase2Manager启动所有Phase2系统
-            if (phase2Manager != null)
-            {
-                phase2Manager.StartPhase2();
-            }
-            else
-            {
-                // 后备方案：手动启动进度条
-                if (phase2ProgressBar != null)
+                // 播放转场动画，在中间回调时加载场景
+                transitionUI.PlayTransition(() =>
                 {
-                    phase2ProgressBar.StartStruggle();
-                }
-                else
-                {
-                    Debug.LogError("[GameManager] Phase2进度条未设置！");
-                }
-            }
-
-            Debug.Log("[GameManager] Phase2争斗阶段开始！");
-
-            // 通知其他系统进入Phase2
-            OnPhase2Started();
-        }
-
-        /// <summary>
-        /// Phase2进度条达到边界 - 判定胜负
-        /// </summary>
-        public void OnPhase2ProgressComplete(bool fisherWins)
-        {
-            if (currentState != GameState.Phase2Struggle)
-            {
-                return;
-            }
-
-            // 结束Phase2系统
-            if (phase2Manager != null)
-            {
-                phase2Manager.EndPhase2();
-            }
-
-            if (fisherWins)
-            {
-                Debug.Log("[GameManager] 进度条到达右侧！渔夫胜利！");
-                EndGame(GameResult.FisherWins);
+                    Debug.Log("[GameManager] 转场动画中间点，开始加载Phase2场景...");
+                    StartCoroutine(LoadPhase2Scene());
+                });
             }
             else
             {
-                Debug.Log("[GameManager] 进度条到达左侧！鱼逃脱！鱼胜利！");
-                EndGame(GameResult.FishWins);
+                Debug.LogError("[GameManager] 转场UI未设置！直接加载场景...");
+                StartCoroutine(LoadPhase2Scene());
             }
         }
 
         /// <summary>
-        /// 结束游戏
+        /// 异步加载Phase2场景
         /// </summary>
-        private void EndGame(GameResult result)
+        private System.Collections.IEnumerator LoadPhase2Scene()
         {
-            if (!isGameRunning)
+            Debug.Log($"[GameManager] 开始异步加载场景: {phase2SceneName}");
+
+            // 异步加载Phase2场景
+            AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(phase2SceneName);
+
+            if (asyncLoad == null)
             {
-                return;
+                Debug.LogError($"[GameManager] 无法加载场景: {phase2SceneName}，请确保场景已添加到Build Settings！");
+                yield break;
             }
 
-            isGameRunning = false;
-            currentState = GameState.Ended;
+            // 先不激活场景，等待加载完成
+            asyncLoad.allowSceneActivation = false;
 
-            Debug.Log($"[GameManager] 游戏结束！结果: {result}");
-
-            // 显示结果面板
-            if (resultUI != null)
+            // 等待加载完成（progress会到0.9就停止）
+            while (asyncLoad.progress < 0.9f)
             {
-                resultUI.ShowResult(result);
-            }
-            else
-            {
-                Debug.LogError("[GameManager] 结果面板UI未设置，无法显示结果！");
+                Debug.Log($"[GameManager] 加载进度: {asyncLoad.progress * 100}%");
+                yield return null;
             }
 
-            // 通知其他系统游戏结束
-            OnGameEnded(result);
+            Debug.Log("[GameManager] 场景加载完成，准备激活...");
+
+            // 激活场景
+            asyncLoad.allowSceneActivation = true;
+
+            // 等待场景真正激活
+            while (!asyncLoad.isDone)
+            {
+                yield return null;
+            }
+
+            Debug.Log("[GameManager] Phase2场景已激活！");
         }
+
 
         /// <summary>
         /// 重新开始游戏
@@ -423,32 +347,6 @@ namespace FishAndFisher
 #endif
         }
 
-        /// <summary>
-        /// 游戏开始事件
-        /// </summary>
-        private void OnGameStarted()
-        {
-            // 可以在这里通知其他系统游戏开始
-            // 例如：启用玩家输入、开始背景音乐等
-        }
-
-        /// <summary>
-        /// Phase2开始事件
-        /// </summary>
-        private void OnPhase2Started()
-        {
-            // 通知鱼和渔夫控制器进入Phase2模式
-            // 例如：切换相机、改变输入模式、启动Phase2动画等
-        }
-
-        /// <summary>
-        /// 游戏结束事件
-        /// </summary>
-        private void OnGameEnded(GameResult result)
-        {
-            // 可以在这里通知其他系统游戏结束
-            // 例如：禁用玩家输入、停止背景音乐、播放胜利/失败音效等
-        }
 
         /// <summary>
         /// 获取格式化的时间字符串（MM:SS）
@@ -480,23 +378,13 @@ namespace FishAndFisher
     }
 
     /// <summary>
-    /// 游戏状态枚举
+    /// 游戏状态枚举（Phase1专用）
     /// </summary>
     public enum GameState
     {
         Ready,              // 准备中
         Playing,            // Phase1游戏中
         Phase2Preparation,  // Phase2准备阶段（显示提示UI）
-        Phase2Struggle,     // Phase2争斗阶段
-        Ended               // 已结束
-    }
-
-    /// <summary>
-    /// 游戏结果枚举
-    /// </summary>
-    public enum GameResult
-    {
-        FishWins,   // 鱼胜利
-        FisherWins  // 渔夫胜利
+        Ended               // Phase1已结束
     }
 }

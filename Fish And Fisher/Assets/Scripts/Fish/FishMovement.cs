@@ -31,12 +31,21 @@ namespace FishAndFisher.Fish
         [SerializeField] private int maxComboLevel = 3;            // 最大连击等级
 
         [Header("平面约束")]
+        [Tooltip("是否使用全局游戏平面高度（GameBoundary.GamePlaneY）")]
+        [SerializeField] private bool useGlobalPlaneHeight = true; // 使用全局平面高度
+        [Tooltip("手动设置的游泳深度（仅在不使用全局平面时有效）")]
         [SerializeField] private float swimDepth = 0f;             // 游泳深度（Y轴高度）
         [SerializeField] private bool constrainToPlane = true;     // 是否约束在平面上
+
+        // 运行时的实际游泳深度
+        private float actualSwimDepth;
 
         [Header("边界设置")]
         [SerializeField] private bool useGlobalBoundary = true;    // 使用全局边界（GameBoundary）
         [SerializeField] private float boundaryPushForce = 5f;     // 边界推力
+        [SerializeField] private float wallImpulseDuration = 0.25f; // 墙壁冲量持续时间
+        [SerializeField] private float maxReboundSpeedRatio = 0.5f; // 最大回弹速度比率（相对撞击速度）
+        [SerializeField] private float maxOverBoundaryDistance = 0.8f; // 允许越界的最大距离
 
         [Header("Phase2设置")]
         [SerializeField] private float phase2LeftAngle = -45f;     // Phase2左方向角度
@@ -64,6 +73,13 @@ namespace FishAndFisher.Fish
         private bool isPhase2Mode;                     // 是否处于Phase2模式
         private Vector2 phase2DirectionInput;          // Phase2方向输入（归一化）
 
+        // 墙壁冲量系统
+        private bool isWallImpulseActive;              // 是否正在施加墙壁冲量
+        private Vector3 wallImpulseDirection;          // 冲量方向
+        private float wallImpulseEndTime;              // 冲量结束时间
+        private float impactSpeed;                     // 撞击时的速度
+        private bool wasBeyondBoundary;                // 上一帧是否越界（用于检测刚接触）
+
         // 属性访问器
         public float CurrentSpeed => currentSpeed;
         public float CurrentDirection => currentDirection;
@@ -78,12 +94,41 @@ namespace FishAndFisher.Fish
             currentDirection = transform.eulerAngles.y;
             targetDirection = currentDirection;
 
+            // 确定实际游泳深度
+            UpdateActualSwimDepth();
+
             // 设置初始高度
             if (constrainToPlane)
             {
                 Vector3 pos = transform.position;
-                pos.y = swimDepth;
+                pos.y = actualSwimDepth;
                 transform.position = pos;
+            }
+        }
+
+        /// <summary>
+        /// 更新实际游泳深度（根据配置选择全局或手动设置）
+        /// </summary>
+        private void UpdateActualSwimDepth()
+        {
+            if (useGlobalPlaneHeight && GameBoundary.Instance != null)
+            {
+                actualSwimDepth = GameBoundary.Instance.GamePlaneY;
+
+                // 如果手动设置的值与全局值不一致，发出警告
+                if (Mathf.Abs(swimDepth - actualSwimDepth) > 0.01f)
+                {
+                    Debug.LogWarning($"[FishMovement] 使用全局平面高度 {actualSwimDepth}，忽略手动设置的 swimDepth={swimDepth}");
+                }
+            }
+            else
+            {
+                actualSwimDepth = swimDepth;
+
+                if (useGlobalPlaneHeight && GameBoundary.Instance == null)
+                {
+                    Debug.LogWarning("[FishMovement] 未找到 GameBoundary，回退使用手动设置的 swimDepth");
+                }
             }
         }
 
@@ -268,6 +313,43 @@ namespace FishAndFisher.Fish
         }
 
         /// <summary>
+        /// 应用墙壁冲量
+        /// </summary>
+        private void ApplyWallImpulse()
+        {
+            if (!isWallImpulseActive)
+                return;
+
+            // 检查冲量是否结束
+            if (Time.time > wallImpulseEndTime)
+            {
+                isWallImpulseActive = false;
+                return;
+            }
+
+            // 计算冲量强度（随时间衰减，模拟弹簧效果）
+            float timeRatio = 1f - ((wallImpulseEndTime - Time.time) / wallImpulseDuration);
+            float impulseStrength = boundaryPushForce * (1f - timeRatio); // 初期强，逐渐减弱
+
+            // 施加反向力到速度
+            Vector3 impulseForce = wallImpulseDirection * impulseStrength * Time.deltaTime;
+            velocity += impulseForce;
+
+            // 限制反向速度不超过撞击速度的设定比率
+            float maxReboundSpeed = impactSpeed * maxReboundSpeedRatio;
+            Vector3 reboundVelocity = Vector3.Project(velocity, wallImpulseDirection);
+
+            if (reboundVelocity.magnitude > maxReboundSpeed)
+            {
+                Vector3 otherVelocity = velocity - reboundVelocity;
+                velocity = otherVelocity + reboundVelocity.normalized * maxReboundSpeed;
+            }
+
+            // 更新当前速度（基于velocity的大小）
+            currentSpeed = new Vector3(velocity.x, 0, velocity.z).magnitude;
+        }
+
+        /// <summary>
         /// 应用移动
         /// </summary>
         private void ApplyMovement()
@@ -275,8 +357,22 @@ namespace FishAndFisher.Fish
             // 计算前进方向
             Vector3 forward = transform.forward;
 
-            // 计算速度向量
-            velocity = forward * currentSpeed;
+            // 如果没有墙壁冲量，正常计算速度向量
+            if (!isWallImpulseActive)
+            {
+                velocity = forward * currentSpeed;
+            }
+            else
+            {
+                // 有墙壁冲量时，先应用冲量效果
+                ApplyWallImpulse();
+
+                // 然后叠加正常的前进速度（允许玩家在冲量期间继续控制）
+                Vector3 normalVelocity = forward * currentSpeed;
+
+                // 混合：冲量主导，但保留部分控制
+                velocity = Vector3.Lerp(velocity, normalVelocity, 0.3f);
+            }
 
             // 约束在平面上
             if (constrainToPlane)
@@ -290,16 +386,16 @@ namespace FishAndFisher.Fish
             // 保持Y轴高度
             if (constrainToPlane)
             {
-                newPosition.y = swimDepth;
+                newPosition.y = actualSwimDepth;
             }
 
             // 调试输出
-            if (moveInput.magnitude > 0.1f)
+            if (moveInput.magnitude > 0.1f || isWallImpulseActive)
             {
                 Debug.Log($"[ApplyMovement] currentSpeed={currentSpeed:F2}, targetSpeed={targetSpeed:F2}, " +
                          $"velocity={velocity.magnitude:F2}, moveInput={moveInput}, " +
                          $"angleDiff={Mathf.Abs(Mathf.DeltaAngle(currentDirection, targetDirection)):F1}, " +
-                         $"isJumpBoosting={isJumpBoosting}");
+                         $"isJumpBoosting={isJumpBoosting}, wallImpulse={isWallImpulseActive}");
             }
 
             transform.position = newPosition;
@@ -324,51 +420,82 @@ namespace FishAndFisher.Fish
         {
             GameBoundary boundary = GameBoundary.Instance;
             Vector3 pos = transform.position;
-            Vector3 originalPos = pos;
 
             // 获取边界
             Vector2 minBounds = boundary.MinBounds;
             Vector2 maxBounds = boundary.MaxBounds;
 
-            bool hitBoundary = false;
+            // 检查是否越界
+            bool isBeyondBoundary = false;
+            Vector3 boundaryNormal = Vector3.zero; // 边界法线方向
 
-            // X轴边界
-            if (pos.x < minBounds.x || pos.x > maxBounds.x)
+            // X轴边界检测
+            if (pos.x < minBounds.x)
             {
-                float pushDirection = pos.x < minBounds.x ? 1f : -1f;
-                pos.x = Mathf.Clamp(pos.x, minBounds.x, maxBounds.x);
-
-                // 添加反向推力
-                velocity.x += pushDirection * boundaryPushForce;
-                hitBoundary = true;
+                isBeyondBoundary = true;
+                boundaryNormal += Vector3.right; // 向右推
+            }
+            else if (pos.x > maxBounds.x)
+            {
+                isBeyondBoundary = true;
+                boundaryNormal += Vector3.left; // 向左推
             }
 
-            // Z轴边界
-            if (pos.z < minBounds.y || pos.z > maxBounds.y)
+            // Z轴边界检测
+            if (pos.z < minBounds.y)
             {
-                float pushDirection = pos.z < minBounds.y ? 1f : -1f;
-                pos.z = Mathf.Clamp(pos.z, minBounds.y, maxBounds.y);
-
-                // 添加反向推力
-                velocity.z += pushDirection * boundaryPushForce;
-                hitBoundary = true;
+                isBeyondBoundary = true;
+                boundaryNormal += Vector3.forward; // 向前推
+            }
+            else if (pos.z > maxBounds.y)
+            {
+                isBeyondBoundary = true;
+                boundaryNormal += Vector3.back; // 向后推
             }
 
-            if (hitBoundary)
+            // 检测刚接触边界（上一帧未越界，这一帧越界）
+            if (isBeyondBoundary && !wasBeyondBoundary && !isWallImpulseActive)
             {
-                transform.position = pos;
+                // 触发墙壁冲量
+                impactSpeed = currentSpeed;
+                wallImpulseDirection = boundaryNormal.normalized;
+                isWallImpulseActive = true;
+                wallImpulseEndTime = Time.time + wallImpulseDuration;
 
-                // 减速
-                currentSpeed *= 0.5f;
+                Debug.Log($"[FishMovement] 撞墙！速度: {impactSpeed:F2}, 方向: {wallImpulseDirection}");
+            }
 
-                // 调整方向朝向边界中心
-                Vector3 toCenter = boundary.BoundaryCenter - pos;
-                toCenter.y = 0;
-                if (toCenter.magnitude > 0.1f)
+            // 限制最大越界距离
+            if (isBeyondBoundary)
+            {
+                float overDistanceX = 0f;
+                float overDistanceZ = 0f;
+
+                if (pos.x < minBounds.x)
+                    overDistanceX = minBounds.x - pos.x;
+                else if (pos.x > maxBounds.x)
+                    overDistanceX = pos.x - maxBounds.x;
+
+                if (pos.z < minBounds.y)
+                    overDistanceZ = minBounds.y - pos.z;
+                else if (pos.z > maxBounds.y)
+                    overDistanceZ = pos.z - maxBounds.y;
+
+                // 如果越界距离超过限制，强制拉回
+                if (overDistanceX > maxOverBoundaryDistance)
                 {
-                    targetDirection = Quaternion.LookRotation(toCenter.normalized).eulerAngles.y;
+                    pos.x = Mathf.Clamp(pos.x, minBounds.x - maxOverBoundaryDistance, maxBounds.x + maxOverBoundaryDistance);
                 }
+                if (overDistanceZ > maxOverBoundaryDistance)
+                {
+                    pos.z = Mathf.Clamp(pos.z, minBounds.y - maxOverBoundaryDistance, maxBounds.y + maxOverBoundaryDistance);
+                }
+
+                transform.position = pos;
             }
+
+            // 更新状态
+            wasBeyondBoundary = isBeyondBoundary;
         }
 
         /// <summary>

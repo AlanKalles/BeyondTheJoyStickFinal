@@ -16,6 +16,10 @@ namespace FishAndFisher
         [SerializeField] private Vector2 boundarySize = new Vector2(50f, 50f); // XZ平面边界大小
         [SerializeField] private float boundaryHeight = 0f;                     // 边界中心高度（Y轴）
 
+        [Header("游戏平面设置")]
+        [Tooltip("游戏平面的Y轴高度 - 鱼和渔夫准心都在此平面上移动")]
+        [SerializeField] private float gamePlaneY = 0f;                         // 游戏平面高度（鱼和准心共享）
+
         [Header("可视化设置")]
         [SerializeField] private Color boundaryColor = new Color(0f, 1f, 0f, 0.3f);
         [SerializeField] private bool showBoundary = true;
@@ -57,6 +61,11 @@ namespace FishAndFisher
         /// 边界高度
         /// </summary>
         public float BoundaryHeight => transform.position.y + boundaryHeight;
+
+        /// <summary>
+        /// 游戏平面高度（鱼和渔夫准心共享的Y轴坐标）
+        /// </summary>
+        public float GamePlaneY => gamePlaneY;
 
         /// <summary>
         /// 边界最小点（XZ平面）
