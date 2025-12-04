@@ -1288,7 +1288,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.8627451, g: 0.63529414, b: 0.14901961, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1730,6 +1730,7 @@ MonoBehaviour:
   hookableLayer:
     serializedVersion: 2
     m_Bits: 256
+  fishingLineController: {fileID: 1170994208}
   rodPivot: {fileID: 1612987801}
   leftRotationAngle: -45
   rightRotationAngle: 45
@@ -1755,6 +1756,7 @@ MonoBehaviour:
   moveSpeed: 5
   smoothSpeed: 10
   targetCamera: {fileID: 644324369}
+  cameraRectTransform: {fileID: 0}
 --- !u!4 &785208429
 Transform:
   m_ObjectHideFlags: 0
@@ -2994,13 +2996,14 @@ GameObject:
   m_Component:
   - component: {fileID: 1170994207}
   - component: {fileID: 1170994206}
+  - component: {fileID: 1170994208}
   m_Layer: 0
-  m_Name: Line
+  m_Name: fishline
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!120 &1170994206
 LineRenderer:
   serializedVersion: 2
@@ -3069,8 +3072,8 @@ LineRenderer:
       m_RotationOrder: 4
     colorGradient:
       serializedVersion: 2
-      key0: {r: 1, g: 1, b: 1, a: 1}
-      key1: {r: 1, g: 1, b: 1, a: 1}
+      key0: {r: 0.9960785, g: 0.6431373, b: 0.16078432, a: 1}
+      key1: {r: 0.9960785, g: 0.6431373, b: 0.16078432, a: 1}
       key2: {r: 0, g: 0, b: 0, a: 0}
       key3: {r: 0, g: 0, b: 0, a: 0}
       key4: {r: 0, g: 0, b: 0, a: 0}
@@ -3094,7 +3097,7 @@ LineRenderer:
       atime6: 0
       atime7: 0
       m_Mode: 0
-      m_ColorSpace: -1
+      m_ColorSpace: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     numCornerVertices: 0
@@ -3123,6 +3126,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1170994208
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170994205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4abb6c2f08967db46803b6517a5bd7e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  startTransform: {fileID: 939256735}
+  endTransform: {fileID: 1683114218}
+  extendDuration: 0.1
 --- !u!1 &1203211920
 GameObject:
   m_ObjectHideFlags: 0
@@ -3140,7 +3158,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1203211921
 Transform:
   m_ObjectHideFlags: 0
@@ -3570,9 +3588,9 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 303307462}
-  - {fileID: 820682099}
   - {fileID: 1565966263}
   - {fileID: 138386896}
+  - {fileID: 820682099}
   - {fileID: 557905091}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

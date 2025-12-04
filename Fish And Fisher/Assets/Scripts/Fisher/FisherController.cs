@@ -28,6 +28,10 @@ namespace FishAndFisher.Fisher
         [Tooltip("可被钩住的图层")]
         [SerializeField] private LayerMask hookableLayer;
 
+        [Header("钓鱼线设置")]
+        [Tooltip("钓鱼线控制器（Phase1用）")]
+        [SerializeField] private FishingLineController fishingLineController;
+
         [Header("Phase2设置")]
         [Tooltip("Phase2鱼竿旋转轴心（用于左右旋转）")]
         [SerializeField] private Transform rodPivot;
@@ -121,6 +125,12 @@ namespace FishAndFisher.Fisher
             lastSwingTime = Time.time;
 
             Debug.Log("[FisherController] 开始挥动鱼竿！");
+
+            // 发射钓鱼线，传入冷却时间决定显示时长
+            if (fishingLineController != null)
+            {
+                fishingLineController.FireLine(swingCooldown);
+            }
 
             // 在挥动开始时检测钩子位置的碰撞
             CheckHookCollision();
@@ -229,6 +239,12 @@ namespace FishAndFisher.Fisher
             if (fishController != null)
             {
                 Debug.Log("[FisherController] 钩住了鱼！进入Phase2准备阶段");
+
+                // 钓到鱼时立即隐藏钓鱼线
+                if (fishingLineController != null)
+                {
+                    fishingLineController.OnFishCaught();
+                }
 
                 // 获取钩子位置（逻辑准心的位置）
                 Vector3 hookPosition = Vector3.zero;
