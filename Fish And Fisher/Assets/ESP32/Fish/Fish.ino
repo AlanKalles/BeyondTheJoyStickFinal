@@ -1,118 +1,113 @@
-#include <Wire.h>
+#include <Adafruit_BNO08x.h>
 #include <SparkFunLSM6DSO.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <Wire.h>
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+// ====== BNO-085 Setup ======
+Adafruit_BNO08x bno(-1);
+sh2_SensorValue_t sensorValue;
 
+// Current quaternion from BNO-085
+float qW = 1, qX = 0, qY = 0, qZ = 0;
+bool bnoDataReceived = false;
+
+// ====== LSM6DSO Setup ======
 LSM6DSO imu;
-// 四元数
-float q0 = 1, q1 = 0, q2 = 0, q3 = 0;
 
-// 计时
-unsigned long lastTime = 0;
-
-float lastWx = 0, lastWy = 0, lastWz = 0;
-bool hasLast = false;
-
-// ====== 低通滤波变量 ======
+// Low-pass filter variables
 float fGx = 0, fGy = 0, fGz = 0;
-const float LPF_ALPHA = 0.2;   // 越小越平滑，0.1–0.3 推荐区间
+const float LPF_ALPHA = 0.2;
 
+// ====== Timing ======
+unsigned long lastOutputTime = 0;
+const unsigned long OUTPUT_INTERVAL = 20; // 50 Hz output
 
-bool initIMU() {
-  Wire.begin(A4, A5);
-  delay(10);
-  if (!imu.begin()) return false;
-  imu.initialize(BASIC_SETTINGS);
-  return true;
-}
-
-void normalizeQuaternion() {
-  float norm = sqrt(q0*q0 + q1*q1 + q2*q2 + q3*q3);
-  q0 /= norm;
-  q1 /= norm;
-  q2 /= norm;
-  q3 /= norm;
-}
-
-void updateQuaternion(float gx, float gy, float gz, float dt) {
-  gx *= DEG_TO_RAD;
-  gy *= DEG_TO_RAD;
-  gz *= DEG_TO_RAD;
-
-  float dq0 = 0.5f * (-q1*gx - q2*gy - q3*gz);
-  float dq1 = 0.5f * ( q0*gx + q2*gz - q3*gy);
-  float dq2 = 0.5f * ( q0*gy - q1*gz + q3*gx);
-  float dq3 = 0.5f * ( q0*gz + q1*gy - q2*gx);
-
-  q0 += dq0 * dt;
-  q1 += dq1 * dt;
-  q2 += dq2 * dt;
-  q3 += dq3 * dt;
-
-  normalizeQuaternion();
+void setReports() {
+  Serial.println("Setting rotation vector report...");
+  if (!bno.enableReport(SH2_ROTATION_VECTOR, 20000)) {
+    Serial.println("Could not enable rotation vector");
+  } else {
+    Serial.println("Rotation vector enabled");
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(500);
+  delay(1000); // Give more time for serial to initialize
 
-  if(!initIMU()) {
-    Serial.println("IMU init failed!");
-    while(1);
+  Serial.println("Starting Fish...");
+
+  // Initialize I2C
+  Wire.begin(A4, A5);
+  delay(100);
+
+  // Initialize BNO-085
+  Serial.println("Initializing BNO-085...");
+  if (!bno.begin_I2C()) {
+    Serial.println("BNO-085 init failed! Check wiring.");
+    while (1)
+      ;
   }
+  Serial.println("BNO-085 initialized");
 
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setTextSize(1);
+  delay(100);
+  setReports();
 
-  lastTime = micros();
+  // Initialize LSM6DSO
+  Serial.println("Initializing LSM6DSO...");
+  if (!imu.begin()) {
+    Serial.println("LSM6DSO init failed!");
+    while (1)
+      ;
+  }
+  imu.initialize(BASIC_SETTINGS);
+  Serial.println("LSM6DSO initialized");
+
+  Serial.println("Fish Ready!");
 }
 
 void loop() {
-  float gx, gy, gz;
-  readGyro(gx, gy, gz);  // ← 已是经过低通滤波后的数据
+  // ====== Read BNO-085 quaternion ======
+  if (bno.wasReset()) {
+    Serial.println("BNO-085 was reset, re-enabling reports...");
+    setReports();
+  }
 
-  // 获取角速度 magnitude（旋转速率）
-  float gyroMag = vectorMagnitude(gx, gy, gz);
+  if (bno.getSensorEvent(&sensorValue)) {
+    if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
+      qW = sensorValue.un.rotationVector.real;
+      qX = sensorValue.un.rotationVector.i;
+      qY = sensorValue.un.rotationVector.j;
+      qZ = sensorValue.un.rotationVector.k;
+      bnoDataReceived = true;
+    }
+  }
 
-  // 打印角速度模长
-  Serial.print("GyroMag:");
-  Serial.println(gyroMag, 3);  // 单位 deg/s
-  
-
-  delay(10);
-}
-
-
-// ====== 抽象方法：计算向量模长 ======
-float vectorMagnitude(float x, float y, float z) {
-  return sqrt(x*x + y*y + z*z);
-}
-
-
-// ====== 一阶低通滤波器 ======
-float lowPass(float prev, float current) {
-  return prev + LPF_ALPHA * (current - prev);
-}
-
-
-// ====== 抽象方法：读取 + 低通滤波 ======
-void readGyro(float &gx, float &gy, float &gz) {
+  // ====== Read gyroscope with low-pass filter ======
   float rawX = imu.readFloatGyroX();
   float rawY = imu.readFloatGyroY();
   float rawZ = imu.readFloatGyroZ();
 
-  // 应用低通滤波
-  fGx = lowPass(fGx, rawX);
-  fGy = lowPass(fGy, rawY);
-  fGz = lowPass(fGz, rawZ);
+  fGx = fGx + LPF_ALPHA * (rawX - fGx);
+  fGy = fGy + LPF_ALPHA * (rawY - fGy);
+  fGz = fGz + LPF_ALPHA * (rawZ - fGz);
 
-  gx = fGx;
-  gy = fGy;
-  gz = fGz;
+  float gyroMag = sqrt(fGx * fGx + fGy * fGy + fGz * fGz);
+
+  // ====== Output at fixed interval ======
+  unsigned long now = millis();
+  if (now - lastOutputTime >= OUTPUT_INTERVAL) {
+    lastOutputTime = now;
+
+    // Output: FISH:qw,qx,qy,qz,gyroMag
+    Serial.print("FISH:");
+    Serial.print(qW, 4);
+    Serial.print(",");
+    Serial.print(qX, 4);
+    Serial.print(",");
+    Serial.print(qY, 4);
+    Serial.print(",");
+    Serial.print(qZ, 4);
+    Serial.print(",");
+    Serial.println(gyroMag, 2);
+  }
 }

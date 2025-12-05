@@ -1,83 +1,103 @@
-#define EN_A 2   // D2
-#define EN_B 3   // D3
-#define EN_SW 4  // D4 按键
+#include <Adafruit_BNO08x.h>
+#include <Wire.h>
+
+// ====== BNO-085 Setup ======
+Adafruit_BNO08x bno(-1);
+sh2_SensorValue_t sensorValue;
+
+// Current quaternion from BNO-085
+float qW = 1, qX = 0, qY = 0, qZ = 0;
+
+// ====== Rotary Encoder Setup ======
+#define EN_A 2  // D2 - CLK
+#define EN_B 3  // D3 - DT
+#define EN_SW 4 // D4 - Button
 
 volatile long encoderCount = 0;
 int lastA = 0;
 
-unsigned long lastPressTime = 0;
-bool buttonState = HIGH;
-bool lastButtonState = HIGH;
+// ====== Timing ======
+unsigned long lastOutputTime = 0;
+const unsigned long OUTPUT_INTERVAL = 20; // 50 Hz output
 
+void setReports() {
+  if (!bno.enableReport(SH2_ROTATION_VECTOR, 20000)) {
+    Serial.println("Could not enable rotation vector");
+  }
+}
+
+// ====== Encoder interrupt ======
 void IRAM_ATTR readEncoder() {
   int A = digitalRead(EN_A);
   int B = digitalRead(EN_B);
 
   if (A != lastA) {
-    if (A == B) encoderCount++;
-    else encoderCount--;
+    if (A == B)
+      encoderCount++;
+    else
+      encoderCount--;
   }
   lastA = A;
 }
 
-unsigned long lastTime = 0;
-long lastCount = 0;
-
 void setup() {
   Serial.begin(115200);
+  delay(500);
 
+  // Initialize I2C
+  Wire.begin(A4, A5);
+  delay(100);
+
+  // Initialize BNO-085
+  if (!bno.begin_I2C()) {
+    Serial.println("BNO-085 init failed!");
+    while (1)
+      ;
+  }
+  setReports();
+
+  // Setup encoder pins
   pinMode(EN_A, INPUT_PULLUP);
   pinMode(EN_B, INPUT_PULLUP);
   pinMode(EN_SW, INPUT_PULLUP);
 
+  // Attach encoder interrupt
   attachInterrupt(digitalPinToInterrupt(EN_A), readEncoder, CHANGE);
+
+  Serial.println("Fisher Ready!");
 }
 
 void loop() {
-  // -------- 读取旋转速度 --------
-  unsigned long now = millis();
-  if (now - lastTime >= 20) {
-    long count = encoderCount;
-    long diff = count - lastCount;
-
-    float CPR = 80.0;  
-    float dt = (now - lastTime) / 1000.0;
-
-    float deg_s = (diff * 360.0 / CPR) / dt;
-    float rpm = (deg_s / 360.0) * 60.0;
-
-    Serial.print("deg/s = ");
-    Serial.print(deg_s);
-    Serial.print("\tRPM = ");
-    Serial.println(rpm);
-
-    lastCount = count;
-    lastTime = now;
-  }
-
-  // -------- 读取按键（去抖 + 长短按） --------
-  int reading = digitalRead(EN_SW);
-
-  if (reading != lastButtonState) {
-    delay(5); // 简单去抖
-  }
-
-  if (reading != buttonState) {
-    buttonState = reading;
-
-    if (buttonState == LOW) {
-      lastPressTime = millis();
-    } 
-    else {
-      unsigned long pressDuration = millis() - lastPressTime;
-
-      if (pressDuration < 400) {
-        Serial.println("Short Press!");
-      } else {
-        Serial.println("Long Press!");
-      }
+  // ====== Read BNO-085 quaternion ======
+  if (bno.getSensorEvent(&sensorValue)) {
+    if (sensorValue.sensorId == SH2_ROTATION_VECTOR) {
+      qW = sensorValue.un.rotationVector.real;
+      qX = sensorValue.un.rotationVector.i;
+      qY = sensorValue.un.rotationVector.j;
+      qZ = sensorValue.un.rotationVector.k;
     }
   }
 
-  lastButtonState = reading;
+  // ====== Read button state (0 = pressed, 1 = not pressed) ======
+  int buttonPressed = (digitalRead(EN_SW) == LOW) ? 1 : 0;
+
+  // ====== Output at fixed interval ======
+  unsigned long now = millis();
+  if (now - lastOutputTime >= OUTPUT_INTERVAL) {
+    lastOutputTime = now;
+
+    // Output: FISHER:qw,qx,qy,qz,encoderCount,buttonPressed
+    Serial.print("FISHER:");
+    Serial.print(qW, 4);
+    Serial.print(",");
+    Serial.print(qX, 4);
+    Serial.print(",");
+    Serial.print(qY, 4);
+    Serial.print(",");
+    Serial.print(qZ, 4);
+    Serial.print(",");
+    Serial.print(encoderCount);
+    Serial.print(",");
+    Serial.println(buttonPressed);
+  }
 }
