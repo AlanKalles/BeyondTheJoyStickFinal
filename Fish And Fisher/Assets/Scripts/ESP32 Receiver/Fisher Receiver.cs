@@ -9,6 +9,10 @@ public class FisherReceiver : MonoBehaviour
     [Header("Serial Settings")]
     public string portName = "/dev/cu.usbmodem3C8427C2EE1C2";
     public int baudRate = 115200;
+    public float reconnectInterval = 2f;
+
+    [Header("Encoder Settings")]
+    public float countsPerRevolution = 80f;  // Encoder CPR (counts per revolution)
 
     [Header("Received Data")]
     public Quaternion rawQuaternion = Quaternion.identity;
@@ -17,39 +21,80 @@ public class FisherReceiver : MonoBehaviour
     public long encoderCount = 0;
     public bool buttonPressed = false;
 
-    [Header("Calibration")]
+    [Header("Encoder Speed")]
+    public float encoderSpeed = 0f;      // deg/s
+    public float encoderRPM = 0f;        // revolutions per minute
+
+    [Header("Status")]
+    public bool isConnected = false;
     public bool isCalibrated = false;
     public int dataReceivedCount = 0;
+    public string connectionStatus = "Not connected";
 
     SerialPort serial;
     Thread readThread;
-    bool running = false;
-
-    // Raw data from thread (volatile for thread safety)
+    volatile bool running = false;
     volatile string latestLine = "";
     
-    // Reference quaternion for calibration
     Quaternion qOffset = Quaternion.identity;
+    float lastReconnectAttempt = 0f;
+
+    // For speed calculation
+    long lastEncoderCount = 0;
+    float lastSpeedTime = 0f;
+    bool hasLastCount = false;
 
     void Start()
     {
-        serial = new SerialPort(portName, baudRate);
-        serial.ReadTimeout = 50;
-        serial.DtrEnable = true;
-        serial.RtsEnable = true;
+        TryConnect();
+        lastSpeedTime = Time.time;
+    }
+
+    void TryConnect()
+    {
+        CloseSerial();
 
         try
         {
+            serial = new SerialPort(portName, baudRate);
+            serial.ReadTimeout = 50;
+            serial.DtrEnable = true;
+            serial.RtsEnable = true;
             serial.Open();
+
             running = true;
+            isConnected = true;
+            connectionStatus = "Connected";
+            
             readThread = new Thread(ReadSerial);
             readThread.Start();
-            Debug.Log($"Fisher Receiver: Serial started on {portName}");
+            
+            Debug.Log($"Fisher Receiver: Connected to {portName}");
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Fisher Receiver: Failed to open serial port - {ex.Message}");
+            isConnected = false;
+            connectionStatus = $"Failed: {ex.Message}";
+            Debug.LogWarning($"Fisher Receiver: Connection failed - {ex.Message}");
         }
+    }
+
+    void CloseSerial()
+    {
+        running = false;
+        
+        if (readThread != null && readThread.IsAlive)
+        {
+            readThread.Join(100);
+        }
+        
+        if (serial != null && serial.IsOpen)
+        {
+            try { serial.Close(); } catch { }
+        }
+        
+        serial = null;
+        isConnected = false;
     }
 
     void ReadSerial()
@@ -58,6 +103,12 @@ public class FisherReceiver : MonoBehaviour
         {
             try
             {
+                if (serial == null || !serial.IsOpen)
+                {
+                    running = false;
+                    break;
+                }
+
                 string line = serial.ReadLine();
                 if (line.StartsWith("FISHER:"))
                 {
@@ -71,22 +122,36 @@ public class FisherReceiver : MonoBehaviour
             catch (Exception ex)
             {
                 Debug.LogWarning($"Fisher Receiver: Read error - {ex.Message}");
+                running = false;
+                break;
             }
         }
     }
 
     void Update()
     {
+        // Check for disconnection and attempt reconnection
+        if (!isConnected || !running || serial == null || !serial.IsOpen)
+        {
+            isConnected = false;
+            connectionStatus = "Disconnected - attempting reconnect...";
+            
+            if (Time.time - lastReconnectAttempt > reconnectInterval)
+            {
+                lastReconnectAttempt = Time.time;
+                Debug.Log("Fisher Receiver: Attempting to reconnect...");
+                TryConnect();
+            }
+            return;
+        }
+
         // Parse on main thread
         string line = latestLine;
         if (string.IsNullOrEmpty(line)) return;
-
-        // Clear so we don't re-parse same line
         latestLine = "";
 
         try
         {
-            // Parse: FISHER:qw,qx,qy,qz,encoderCount,buttonPressed
             string[] parts = line.Substring(7).Split(',');
             if (parts.Length < 6) return;
 
@@ -97,10 +162,8 @@ public class FisherReceiver : MonoBehaviour
             encoderCount = long.Parse(parts[4]);
             buttonPressed = parts[5].Trim() == "1";
 
-            // Create quaternion (Unity uses x,y,z,w order)
             rawQuaternion = new Quaternion(qx, qy, qz, qw);
 
-            // Calibrate on first data
             if (!isCalibrated)
             {
                 qOffset = Quaternion.Inverse(rawQuaternion);
@@ -108,23 +171,47 @@ public class FisherReceiver : MonoBehaviour
                 Debug.Log("Fisher Receiver: Calibrated");
             }
 
-            // Apply calibration offset
             relativeQuaternion = qOffset * rawQuaternion;
-            
-            // Convert to euler angles (-180 to 180)
             eulerAngles = NormalizeEuler(relativeQuaternion.eulerAngles);
 
+            // Calculate encoder speed
+            CalculateEncoderSpeed();
+
             dataReceivedCount++;
+            connectionStatus = "Receiving data";
         }
         catch (Exception ex)
         {
             Debug.LogWarning($"Fisher Receiver: Parse error - {ex.Message}");
         }
 
-        // Press Space to recalibrate
         if (Input.GetKeyDown(KeyCode.Space))
-        {
             Recalibrate();
+    }
+
+    void CalculateEncoderSpeed()
+    {
+        float currentTime = Time.time;
+        float deltaTime = currentTime - lastSpeedTime;
+
+        if (deltaTime > 0.01f)  // Minimum 10ms between calculations
+        {
+            if (hasLastCount)
+            {
+                long deltaCount = encoderCount - lastEncoderCount;
+                
+                // Calculate speed: (counts / CPR) * 360 = degrees
+                // degrees / deltaTime = deg/s
+                float degreesPerCount = 360f / countsPerRevolution;
+                encoderSpeed = (deltaCount * degreesPerCount) / deltaTime;
+                
+                // Calculate RPM: (deg/s / 360) * 60 = RPM
+                encoderRPM = (encoderSpeed / 360f) * 60f;
+            }
+
+            lastEncoderCount = encoderCount;
+            lastSpeedTime = currentTime;
+            hasLastCount = true;
         }
     }
 
@@ -143,11 +230,23 @@ public class FisherReceiver : MonoBehaviour
         Debug.Log("Fisher Receiver: Recalibrated");
     }
 
+    // Reset encoder count to zero
+    public void ResetEncoderCount()
+    {
+        lastEncoderCount = encoderCount;
+        hasLastCount = false;
+        encoderSpeed = 0f;
+        encoderRPM = 0f;
+        Debug.Log("Fisher Receiver: Encoder reset");
+    }
+
     void OnApplicationQuit()
     {
-        running = false;
-        Thread.Sleep(50);
-        if (serial != null && serial.IsOpen)
-            serial.Close();
+        CloseSerial();
+    }
+
+    void OnDestroy()
+    {
+        CloseSerial();
     }
 }

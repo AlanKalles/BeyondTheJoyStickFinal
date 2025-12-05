@@ -9,6 +9,7 @@ public class FishReceiver : MonoBehaviour
     [Header("Serial Settings")]
     public string portName = "/dev/cu.usbmodem3C8427C31A6C2";
     public int baudRate = 115200;
+    public float reconnectInterval = 2f;  // Seconds between reconnection attempts
 
     [Header("Received Data")]
     public Quaternion rawQuaternion = Quaternion.identity;
@@ -16,39 +17,71 @@ public class FishReceiver : MonoBehaviour
     public Vector3 eulerAngles = Vector3.zero;
     public float gyroMagnitude = 0f;
 
-    [Header("Calibration")]
+    [Header("Status")]
+    public bool isConnected = false;
     public bool isCalibrated = false;
     public int dataReceivedCount = 0;
+    public string connectionStatus = "Not connected";
 
     SerialPort serial;
     Thread readThread;
-    bool running = false;
-
-    // Raw data from thread (volatile for thread safety)
+    volatile bool running = false;
     volatile string latestLine = "";
     
-    // Reference quaternion for calibration
     Quaternion qOffset = Quaternion.identity;
+    float lastReconnectAttempt = 0f;
 
     void Start()
     {
-        serial = new SerialPort(portName, baudRate);
-        serial.ReadTimeout = 50;
-        serial.DtrEnable = true;
-        serial.RtsEnable = true;
+        TryConnect();
+    }
+
+    void TryConnect()
+    {
+        // Close existing connection if any
+        CloseSerial();
 
         try
         {
+            serial = new SerialPort(portName, baudRate);
+            serial.ReadTimeout = 50;
+            serial.DtrEnable = true;
+            serial.RtsEnable = true;
             serial.Open();
+
             running = true;
+            isConnected = true;
+            connectionStatus = "Connected";
+            
             readThread = new Thread(ReadSerial);
             readThread.Start();
-            Debug.Log($"Fish Receiver: Serial started on {portName}");
+            
+            Debug.Log($"Fish Receiver: Connected to {portName}");
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Fish Receiver: Failed to open serial port - {ex.Message}");
+            isConnected = false;
+            connectionStatus = $"Failed: {ex.Message}";
+            Debug.LogWarning($"Fish Receiver: Connection failed - {ex.Message}");
         }
+    }
+
+    void CloseSerial()
+    {
+        running = false;
+        
+        if (readThread != null && readThread.IsAlive)
+        {
+            readThread.Join(100);
+        }
+        
+        if (serial != null && serial.IsOpen)
+        {
+            try { serial.Close(); } catch { }
+        }
+        
+        serial = null;
+        isConnected = false;
     }
 
     void ReadSerial()
@@ -57,6 +90,12 @@ public class FishReceiver : MonoBehaviour
         {
             try
             {
+                if (serial == null || !serial.IsOpen)
+                {
+                    running = false;
+                    break;
+                }
+
                 string line = serial.ReadLine();
                 if (line.StartsWith("FISH:"))
                 {
@@ -70,22 +109,36 @@ public class FishReceiver : MonoBehaviour
             catch (Exception ex)
             {
                 Debug.LogWarning($"Fish Receiver: Read error - {ex.Message}");
+                running = false;  // Signal to attempt reconnection
+                break;
             }
         }
     }
 
     void Update()
     {
+        // Check for disconnection and attempt reconnection
+        if (!isConnected || !running || serial == null || !serial.IsOpen)
+        {
+            isConnected = false;
+            connectionStatus = "Disconnected - attempting reconnect...";
+            
+            if (Time.time - lastReconnectAttempt > reconnectInterval)
+            {
+                lastReconnectAttempt = Time.time;
+                Debug.Log("Fish Receiver: Attempting to reconnect...");
+                TryConnect();
+            }
+            return;
+        }
+
         // Parse on main thread
         string line = latestLine;
         if (string.IsNullOrEmpty(line)) return;
-
-        // Clear so we don't re-parse same line
         latestLine = "";
 
         try
         {
-            // Parse: FISH:qw,qx,qy,qz,gyroMag
             string[] parts = line.Substring(5).Split(',');
             if (parts.Length < 5) return;
 
@@ -95,10 +148,8 @@ public class FishReceiver : MonoBehaviour
             float qz = float.Parse(parts[3], CultureInfo.InvariantCulture);
             gyroMagnitude = float.Parse(parts[4], CultureInfo.InvariantCulture);
 
-            // Create quaternion (Unity uses x,y,z,w order)
             rawQuaternion = new Quaternion(qx, qy, qz, qw);
 
-            // Calibrate on first data
             if (!isCalibrated)
             {
                 qOffset = Quaternion.Inverse(rawQuaternion);
@@ -106,24 +157,18 @@ public class FishReceiver : MonoBehaviour
                 Debug.Log("Fish Receiver: Calibrated");
             }
 
-            // Apply calibration offset
             relativeQuaternion = qOffset * rawQuaternion;
-            
-            // Convert to euler angles (-180 to 180)
             eulerAngles = NormalizeEuler(relativeQuaternion.eulerAngles);
-
             dataReceivedCount++;
+            connectionStatus = "Receiving data";
         }
         catch (Exception ex)
         {
             Debug.LogWarning($"Fish Receiver: Parse error - {ex.Message}");
         }
 
-        // Press Space to recalibrate
         if (Input.GetKeyDown(KeyCode.Space))
-        {
             Recalibrate();
-        }
     }
 
     Vector3 NormalizeEuler(Vector3 euler)
@@ -143,9 +188,11 @@ public class FishReceiver : MonoBehaviour
 
     void OnApplicationQuit()
     {
-        running = false;
-        Thread.Sleep(50);
-        if (serial != null && serial.IsOpen)
-            serial.Close();
+        CloseSerial();
+    }
+
+    void OnDestroy()
+    {
+        CloseSerial();
     }
 }
