@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO.Ports;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace FishAndFisher.Fish
@@ -22,6 +24,22 @@ namespace FishAndFisher.Fish
         [Header("控制目标")]
         [Tooltip("要被 IMU 控的目标（不填就用当前物体）")]
         public Transform fishTarget;
+        
+        [Header("Serial 读取设置")]
+        public SensorDataType[] sensorDataOrder = new SensorDataType[]
+        {
+            SensorDataType.TimeStamp,
+            SensorDataType.QW,
+            SensorDataType.Qx,
+            SensorDataType.Qy,
+            SensorDataType.Qz,
+            SensorDataType.Gx,
+            SensorDataType.Gy,
+            SensorDataType.Gz,
+        };
+        public SensorDataType tailRotationAxis = SensorDataType.Gx; // 用哪个陀螺仪轴来驱动鱼尾摆动
+        private Dictionary<SensorDataType, int> sensorDataDict = new Dictionary<SensorDataType, int>();
+        private float prevTailAxisRotation = 0f;
 
         [Header("轴向映射")]
         [Tooltip("是否用 IMU 的 yaw 控制水平转向（左右转头）")]
@@ -71,6 +89,10 @@ namespace FishAndFisher.Fish
             {
                 Debug.LogWarning("[ImuFishController] 启用了 driveFishMovement 但 fishTarget 上没有 FishMovement 组件。");
             }
+            
+            // 构建传感器数据索引字典
+            for (int i = 0; i < sensorDataOrder.Length; i++)
+                sensorDataDict.Add(sensorDataOrder[i], i);
         }
 
         private void OnEnable()
@@ -128,7 +150,7 @@ namespace FishAndFisher.Fish
         }
 
         /// <summary>
-        /// 读取一行串口数据："qw,qx,qy,qz"
+        /// 读取一行串口数据
         /// </summary>
         private void ReadImu()
         {
@@ -139,14 +161,40 @@ namespace FishAndFisher.Fish
                 if (serial.BytesToRead == 0)
                     return;
 
-                string line = serial.ReadLine();   // 例如："0.99,-0.01,0.05,0.00"
+                string line = serial.ReadLine(); // 例如："0.99,-0.01,0.05,0.00"
                 string[] parts = line.Split(',');
                 if (parts.Length != 4) return;
 
-                float qw = float.Parse(parts[0], CultureInfo.InvariantCulture);
-                float qx = float.Parse(parts[1], CultureInfo.InvariantCulture);
-                float qy = float.Parse(parts[2], CultureInfo.InvariantCulture);
-                float qz = float.Parse(parts[3], CultureInfo.InvariantCulture);
+                float qw = float.Parse(parts[sensorDataDict[SensorDataType.Qx]], CultureInfo.InvariantCulture);
+                float qx = float.Parse(parts[sensorDataDict[SensorDataType.Qy]], CultureInfo.InvariantCulture);
+                float qy = float.Parse(parts[sensorDataDict[SensorDataType.Qz]], CultureInfo.InvariantCulture);
+                float qz = float.Parse(parts[sensorDataDict[SensorDataType.QW]], CultureInfo.InvariantCulture);
+                Quaternion bodyQuaternion = new Quaternion(qx, qy, qz, qw);
+                Vector3 bodyEuler = bodyQuaternion.eulerAngles;
+                
+                float gx = float.Parse(parts[sensorDataDict[SensorDataType.Gx]], CultureInfo.InvariantCulture);
+                float gy = float.Parse(parts[sensorDataDict[SensorDataType.Gy]], CultureInfo.InvariantCulture);
+                float gz = float.Parse(parts[sensorDataDict[SensorDataType.Gz]], CultureInfo.InvariantCulture);
+                Vector3 tailEulerAngularVelocity = new Vector3(gx, gy, gz);
+                
+                var axisAngularVelocity = tailRotationAxis switch
+                {
+                    SensorDataType.Gx => tailEulerAngularVelocity.x,
+                    SensorDataType.Gy => tailEulerAngularVelocity.y,
+                    SensorDataType.Gz => tailEulerAngularVelocity.z,
+                    _ => throw new NotSupportedException("Unsupported tail rotation axis"),
+                };
+                
+                bool directionChanged = axisAngularVelocity * prevTailAxisRotation < 0f;
+                prevTailAxisRotation = axisAngularVelocity;
+                
+                
+                
+                
+                
+                // Check if direction changed here
+                
+                
 
                 // 如果方向反了，可以在这里试试给某些分量取反
                 imuRotation = new Quaternion(qx, qy, qz, qw);
@@ -224,6 +272,22 @@ namespace FishAndFisher.Fish
 
             // 你现在的第三人称相机如果是跟着 FishPlayer 的，
             // 那么视角就会跟着鱼一起转。
+        }
+
+        #endregion
+
+        #region Nested Classes
+
+        public enum SensorDataType
+        {
+            TimeStamp,
+            QW,
+            Qx,
+            Qy,
+            Qz,
+            Gx,
+            Gy,
+            Gz,
         }
 
         #endregion
