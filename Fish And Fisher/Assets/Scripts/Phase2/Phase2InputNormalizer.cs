@@ -16,6 +16,17 @@ namespace FishAndFisher.Phase2
         [Tooltip("渔夫相机（用于获取屏幕中心）")]
         [SerializeField] private Camera fisherCamera;
 
+        [Header("ESP32设置")]
+        [Tooltip("是否使用ESP32旋转输入")]
+        [SerializeField] private bool useESP32Input = false;
+
+        [Tooltip("ESP32旋转死区（度）")]
+        [SerializeField] private float esp32DeadZone = 5f;
+
+        // ESP32旋转值（由ESP32Controller设置）
+        private float esp32FishRotation = 0f;
+        private float esp32FisherRotation = 0f;
+
         // 输入动作
         private InputAction fishMoveAction;
         private InputAction fisherLookAction;
@@ -83,8 +94,19 @@ namespace FishAndFisher.Phase2
                 return;
             }
 
-            // 更新渔夫方向（基于鼠标位置）
-            UpdateFisherDirection();
+            if (useESP32Input)
+            {
+                // ESP32模式：使用ESP32设置的旋转值
+                UpdateESP32FishDirection();
+                UpdateESP32FisherDirection();
+            }
+            else
+            {
+                // 键盘/鼠标模式
+                // 鱼方向通过事件更新（OnFishMovePerformed）
+                // 渔夫方向每帧更新
+                UpdateFisherDirection();
+            }
         }
 
         /// <summary>
@@ -210,6 +232,46 @@ namespace FishAndFisher.Phase2
         }
 
         /// <summary>
+        /// 更新ESP32鱼方向 - 基于eulerAngles.x
+        /// </summary>
+        private void UpdateESP32FishDirection()
+        {
+            // 负角度 → 左方向，正角度 → 右方向
+            if (Mathf.Abs(esp32FishRotation) < esp32DeadZone)
+            {
+                fishDirection = Vector2.zero;
+            }
+            else if (esp32FishRotation < 0)
+            {
+                fishDirection = new Vector2(1, 0); // 左方向
+            }
+            else
+            {
+                fishDirection = new Vector2(-1, 0); // 右方向
+            }
+        }
+
+        /// <summary>
+        /// 更新ESP32渔夫方向 - 基于eulerAngles.z
+        /// </summary>
+        private void UpdateESP32FisherDirection()
+        {
+            // 负角度 → 左方向，正角度 → 右方向
+            if (Mathf.Abs(esp32FisherRotation) < esp32DeadZone)
+            {
+                fisherDirection = Vector2.zero;
+            }
+            else if (esp32FisherRotation < 0)
+            {
+                fisherDirection = new Vector2(1, 0); // 左方向
+            }
+            else
+            {
+                fisherDirection = new Vector2(-1, 0); // 右方向
+            }
+        }
+
+        /// <summary>
         /// 检查两个玩家方向是否一致
         /// </summary>
         public bool AreDirectionsMatching()
@@ -247,6 +309,40 @@ namespace FishAndFisher.Phase2
         public bool FisherNoInput()
         {
             return fisherDirection == Vector2.zero;
+        }
+
+        /// <summary>
+        /// 设置ESP32鱼旋转值（供ESP32FishController调用）
+        /// </summary>
+        /// <param name="rotation">eulerAngles.x值</param>
+        public void SetESP32FishRotation(float rotation)
+        {
+            esp32FishRotation = rotation;
+        }
+
+        /// <summary>
+        /// 设置ESP32渔夫旋转值（供ESP32FisherController调用）
+        /// </summary>
+        /// <param name="rotation">eulerAngles.z值</param>
+        public void SetESP32FisherRotation(float rotation)
+        {
+            esp32FisherRotation = rotation;
+        }
+
+        /// <summary>
+        /// 设置是否使用ESP32输入
+        /// </summary>
+        public void SetUseESP32Input(bool use)
+        {
+            useESP32Input = use;
+        }
+
+        /// <summary>
+        /// 获取是否使用ESP32输入
+        /// </summary>
+        public bool IsUsingESP32Input()
+        {
+            return useESP32Input;
         }
 
         /// <summary>

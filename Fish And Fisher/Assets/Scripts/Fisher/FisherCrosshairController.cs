@@ -47,6 +47,10 @@ namespace FishAndFisher.Fisher
         [Tooltip("相机的 RectTransform（用于分屏时限制鼠标区域）")]
         [SerializeField] private RectTransform cameraRectTransform;
 
+        [Header("ESP32设置")]
+        [Tooltip("是否使用ESP32输入（启用后由ESP32FisherController控制位置）")]
+        [SerializeField] private bool useESP32Input = false;
+
         // 目标位置（逻辑准心的目标XZ坐标）
         private Vector3 targetLogicPosition;
 
@@ -114,8 +118,12 @@ namespace FishAndFisher.Fisher
 
         private void Update()
         {
-            // 更新鼠标位置到准心逻辑位置
-            UpdateCrosshairPosition();
+            // ESP32模式下由ESP32FisherController调用SetTargetPosition
+            // 鼠标模式下通过射线计算位置
+            if (!useESP32Input)
+            {
+                UpdateCrosshairPosition();
+            }
 
             // 平滑移动逻辑准心
             MoveLogicCrosshair();
@@ -241,6 +249,41 @@ namespace FishAndFisher.Fisher
         public Vector3 GetVisualCrosshairPosition()
         {
             return visualCrosshair != null ? visualCrosshair.position : Vector3.zero;
+        }
+
+        /// <summary>
+        /// 设置准心目标位置（供ESP32FisherController调用）
+        /// </summary>
+        /// <param name="worldPosition">世界坐标位置（X和Z有效，Y会被自动设置）</param>
+        public void SetTargetPosition(Vector3 worldPosition)
+        {
+            // 确保Y坐标正确
+            worldPosition.y = actualFishPlaneY;
+
+            // 限制在边界内
+            if (useGlobalBoundary && GameBoundary.Instance != null)
+            {
+                worldPosition = GameBoundary.Instance.ClampPointToBounds(worldPosition);
+                worldPosition.y = actualFishPlaneY;
+            }
+
+            targetLogicPosition = worldPosition;
+        }
+
+        /// <summary>
+        /// 设置是否使用ESP32输入
+        /// </summary>
+        public void SetUseESP32Input(bool use)
+        {
+            useESP32Input = use;
+        }
+
+        /// <summary>
+        /// 获取是否使用ESP32输入
+        /// </summary>
+        public bool IsUsingESP32Input()
+        {
+            return useESP32Input;
         }
 
         // 可视化调试信息

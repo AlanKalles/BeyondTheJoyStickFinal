@@ -53,6 +53,7 @@ namespace FishAndFisher.Fisher
         private float lastSwingTime = -999f;
         private float swingTimer = 0f;
         private bool wasAttackPressed = false; // 上一帧的攻击按钮状态
+        private bool hasFireLineThisSwing = false; // 本次挥动是否已发射钓鱼线
 
         // Phase2状态
         private bool isPhase2Mode = false;
@@ -94,6 +95,14 @@ namespace FishAndFisher.Fisher
         }
 
         /// <summary>
+        /// 触发攻击（供ESP32FisherController调用）
+        /// </summary>
+        public void TriggerAttack()
+        {
+            TrySwingRod();
+        }
+
+        /// <summary>
         /// 尝试挥动鱼竿
         /// </summary>
         private void TrySwingRod()
@@ -126,14 +135,8 @@ namespace FishAndFisher.Fisher
 
             Debug.Log("[FisherController] 开始挥动鱼竿！");
 
-            // 发射钓鱼线，传入冷却时间决定显示时长
-            if (fishingLineController != null)
-            {
-                fishingLineController.FireLine(swingCooldown);
-            }
-
-            // 在挥动开始时检测钩子位置的碰撞
-            CheckHookCollision();
+            // 重置发射标记
+            hasFireLineThisSwing = false;
         }
 
         /// <summary>
@@ -161,6 +164,21 @@ namespace FishAndFisher.Fisher
                 // 使用Sin曲线实现挥动效果
                 float angle = Mathf.Sin(progress * Mathf.PI) * 30f;
                 fishingRod.localRotation = Quaternion.Euler(-angle, 0, 0);
+            }
+
+            // 在抬起结束时（progress >= 0.5）发射钓鱼线和检测碰撞
+            if (progress >= 0.5f && !hasFireLineThisSwing)
+            {
+                hasFireLineThisSwing = true;
+
+                // 发射钓鱼线，传入冷却时间决定显示时长
+                if (fishingLineController != null)
+                {
+                    fishingLineController.FireLine(swingCooldown);
+                }
+
+                // 检测钩子位置的碰撞
+                CheckHookCollision();
             }
         }
 

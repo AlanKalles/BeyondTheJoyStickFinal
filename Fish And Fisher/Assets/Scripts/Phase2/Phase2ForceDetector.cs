@@ -25,6 +25,14 @@ namespace FishAndFisher.Phase2
         [Tooltip("频率检测窗口（秒）")]
         [SerializeField] private float detectionWindow = 0.5f;
 
+        [Header("ESP32设置")]
+        [Tooltip("是否使用ESP32力度输入")]
+        [SerializeField] private bool useESP32Force = false;
+
+        // ESP32力度值（由ESP32Controller设置）
+        private float esp32FishForce = 0f;
+        private float esp32FisherForce = 0f;
+
         [Header("输入动作引用")]
         [Tooltip("输入动作资源")]
         [SerializeField] private InputActionAsset inputActions;
@@ -166,17 +174,27 @@ namespace FishAndFisher.Phase2
         /// </summary>
         private void UpdateForce()
         {
-            // 清理过期的时间戳（超出检测窗口）
-            CleanOldTimestamps(fishPressTimestamps);
-            CleanOldTimestamps(fisherPressTimestamps);
+            if (useESP32Force)
+            {
+                // ESP32模式：直接使用ESP32设置的力度值
+                currentFishForce = esp32FishForce;
+                currentFisherForce = esp32FisherForce;
+            }
+            else
+            {
+                // 键盘模式：通过按键频率计算力度
+                // 清理过期的时间戳（超出检测窗口）
+                CleanOldTimestamps(fishPressTimestamps);
+                CleanOldTimestamps(fisherPressTimestamps);
 
-            // 计算当前窗口内的按键频率
-            float fishFrequency = CalculateFrequency(fishPressTimestamps);
-            float fisherFrequency = CalculateFrequency(fisherPressTimestamps);
+                // 计算当前窗口内的按键频率
+                float fishFrequency = CalculateFrequency(fishPressTimestamps);
+                float fisherFrequency = CalculateFrequency(fisherPressTimestamps);
 
-            // 计算力度：频率 × 倍率 × 基础值
-            currentFishForce = fishFrequency * fishForceMultiplier * fishBaseForce;
-            currentFisherForce = fisherFrequency * fisherForceMultiplier * fisherBaseForce;
+                // 计算力度：频率 × 倍率 × 基础值
+                currentFishForce = fishFrequency * fishForceMultiplier * fishBaseForce;
+                currentFisherForce = fisherFrequency * fisherForceMultiplier * fisherBaseForce;
+            }
         }
 
         /// <summary>
@@ -206,6 +224,40 @@ namespace FishAndFisher.Phase2
         public float GetForceDifference()
         {
             return currentFisherForce - currentFishForce;
+        }
+
+        /// <summary>
+        /// 设置ESP32鱼力度（供ESP32FishController调用）
+        /// </summary>
+        /// <param name="normalizedForce">归一化力度值（0-1）</param>
+        public void SetESP32FishForce(float normalizedForce)
+        {
+            esp32FishForce = normalizedForce * fishForceMultiplier * fishBaseForce;
+        }
+
+        /// <summary>
+        /// 设置ESP32渔夫力度（供ESP32FisherController调用）
+        /// </summary>
+        /// <param name="normalizedForce">归一化力度值（0-1）</param>
+        public void SetESP32FisherForce(float normalizedForce)
+        {
+            esp32FisherForce = normalizedForce * fisherForceMultiplier * fisherBaseForce;
+        }
+
+        /// <summary>
+        /// 设置是否使用ESP32力度输入
+        /// </summary>
+        public void SetUseESP32Force(bool use)
+        {
+            useESP32Force = use;
+        }
+
+        /// <summary>
+        /// 获取是否使用ESP32力度输入
+        /// </summary>
+        public bool IsUsingESP32Force()
+        {
+            return useESP32Force;
         }
 
         /// <summary>
