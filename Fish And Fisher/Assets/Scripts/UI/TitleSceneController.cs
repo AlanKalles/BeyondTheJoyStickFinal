@@ -5,6 +5,7 @@ using System.Collections;
 /// <summary>
 /// 标题场景控制器
 /// 处理玩家点击进入游戏的逻辑和场景切换
+/// 支持鼠标点击和ESP32按钮触发
 /// </summary>
 public class TitleSceneController : MonoBehaviour
 {
@@ -22,6 +23,10 @@ public class TitleSceneController : MonoBehaviour
     [Tooltip("up动画播放完毕后等待的时间再切换场景(秒)")]
     [SerializeField] private float waitBeforeSceneLoad = 0.5f;
 
+    [Header("ESP32设置")]
+    [Tooltip("是否启用ESP32按钮触发")]
+    [SerializeField] private bool enableESP32Trigger = true;
+
     [Header("可选设置")]
     [Tooltip("是否允许重复点击")]
     [SerializeField] private bool allowMultipleClicks = false;
@@ -31,6 +36,9 @@ public class TitleSceneController : MonoBehaviour
 
     private bool isTransitioning = false;
 
+    // ESP32按钮状态跟踪（用于边沿检测）
+    private bool wasButtonPressed = false;
+
     private void Update()
     {
         // 检测鼠标左键点击
@@ -38,8 +46,65 @@ public class TitleSceneController : MonoBehaviour
         {
             if (!isTransitioning || allowMultipleClicks)
             {
+                if (debugMode)
+                {
+                    Debug.Log("TitleSceneController: 鼠标点击触发");
+                }
                 StartGameTransition();
             }
+        }
+
+        // 检测ESP32渔夫按钮
+        if (enableESP32Trigger)
+        {
+            CheckESP32ButtonInput();
+        }
+    }
+
+    /// <summary>
+    /// 检测ESP32渔夫按钮输入（边沿触发）
+    /// </summary>
+    private void CheckESP32ButtonInput()
+    {
+        // 获取FisherReceiver
+        FisherReceiver fisherReceiver = null;
+
+        // 优先从ESP32Manager获取
+        if (ESP32Manager.Instance != null)
+        {
+            fisherReceiver = ESP32Manager.Instance.fisherReceiver;
+        }
+
+        // 如果ESP32Manager不存在，尝试直接查找
+        if (fisherReceiver == null)
+        {
+            fisherReceiver = FindFirstObjectByType<FisherReceiver>();
+        }
+
+        // 检查连接状态和按钮输入
+        if (fisherReceiver != null && fisherReceiver.isConnected)
+        {
+            bool isButtonPressed = fisherReceiver.buttonPressed;
+
+            // 边沿检测：只在按钮从未按下变为按下时触发
+            if (isButtonPressed && !wasButtonPressed)
+            {
+                if (!isTransitioning || allowMultipleClicks)
+                {
+                    if (debugMode)
+                    {
+                        Debug.Log("TitleSceneController: ESP32按钮触发");
+                    }
+                    StartGameTransition();
+                }
+            }
+
+            wasButtonPressed = isButtonPressed;
+        }
+        else
+        {
+            // 未连接时重置状态
+            wasButtonPressed = false;
         }
     }
 

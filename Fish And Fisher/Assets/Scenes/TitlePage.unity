@@ -1042,6 +1042,89 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!1 &990087949
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 990087951}
+  - component: {fileID: 990087952}
+  - component: {fileID: 990087950}
+  m_Layer: 0
+  m_Name: ESP32Receiver
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &990087950
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 990087949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5665ea0970bde47f98053874a572b225, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  portName: /dev/cu.usbmodem3C8427C2EE1C2
+  baudRate: 115200
+  reconnectInterval: 2
+  countsPerRevolution: 80
+  rawQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  relativeQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  eulerAngles: {x: 0, y: 0, z: 0}
+  encoderCount: 0
+  buttonPressed: 0
+  encoderSpeed: 0
+  encoderRPM: 0
+  isConnected: 0
+  isCalibrated: 0
+  dataReceivedCount: 0
+  connectionStatus: Not connected
+--- !u!4 &990087951
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 990087949}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2085975076}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &990087952
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 990087949}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18b787127b97d47429579ed462d68936, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  portName: /dev/cu.usbmodem3C8427C31A6C2
+  baudRate: 115200
+  reconnectInterval: 2
+  rawQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  relativeQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  eulerAngles: {x: 0, y: 0, z: 0}
+  gyroMagnitude: 0
+  isConnected: 0
+  isCalibrated: 0
+  dataReceivedCount: 0
+  connectionStatus: Not connected
 --- !u!1 &1056502099
 GameObject:
   m_ObjectHideFlags: 0
@@ -1216,6 +1299,87 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!1 &1342841814
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1342841816}
+  - component: {fileID: 1342841817}
+  - component: {fileID: 1342841815}
+  m_Layer: 0
+  m_Name: ESP32Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1342841815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1342841814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce877dab8b441954cacd1ad2ac22482a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableESP32Control: 1
+  yAxisMin: -45
+  yAxisMax: 45
+  zAxisMin: -45
+  zAxisMax: 45
+  crosshairSmoothTime: 0.1
+  phase2RotationSensitivity: 1
+  encoderSpeedMax: 500
+  fisherReceiver: {fileID: 990087950}
+  crosshairController: {fileID: 0}
+  fisherController: {fileID: 0}
+  phase2ForceDetector: {fileID: 0}
+  phase2InputNormalizer: {fileID: 0}
+--- !u!4 &1342841816
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1342841814}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2085975076}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1342841817
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1342841814}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afd04c1b78ea66a4f8a856bfcd3dc21f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableESP32Control: 1
+  eulerXDeadZone: 15
+  turnSensitivity: 1
+  gyroThreshold: 0.5
+  gyroMaxValue: 5
+  powerSmoothTime: 0.1
+  phase2RotationSensitivity: 1
+  fishReceiver: {fileID: 990087952}
+  fishMovement: {fileID: 0}
+  phase2ForceDetector: {fileID: 0}
+  phase2InputNormalizer: {fileID: 0}
 --- !u!1 &1430341226
 GameObject:
   m_ObjectHideFlags: 0
@@ -1602,6 +1766,57 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!1 &2085975074
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2085975076}
+  - component: {fileID: 2085975075}
+  m_Layer: 0
+  m_Name: Esp32Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2085975075
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2085975074}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99fe8a85578ab69429c5ec9bc3474b96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fishReceiver: {fileID: 990087952}
+  fisherReceiver: {fileID: 990087950}
+  fishController: {fileID: 1342841817}
+  fisherController: {fileID: 1342841815}
+  showDebugInfo: 1
+--- !u!4 &2085975076
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2085975074}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 457.0976, y: 307.12073, z: -17.795937}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1342841816}
+  - {fileID: 990087951}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2087406664
 GameObject:
   m_ObjectHideFlags: 0
@@ -1684,3 +1899,4 @@ SceneRoots:
   - {fileID: 166640335}
   - {fileID: 542074145}
   - {fileID: 88158480}
+  - {fileID: 2085975076}

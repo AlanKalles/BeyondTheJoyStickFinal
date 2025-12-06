@@ -119,6 +119,87 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &134866899
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 134866901}
+  - component: {fileID: 134866902}
+  - component: {fileID: 134866900}
+  m_Layer: 0
+  m_Name: ESP32Controller
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &134866900
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 134866899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce877dab8b441954cacd1ad2ac22482a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableESP32Control: 1
+  yAxisMin: -45
+  yAxisMax: 45
+  zAxisMin: -45
+  zAxisMax: 45
+  crosshairSmoothTime: 0.1
+  phase2RotationSensitivity: 1
+  encoderSpeedMax: 500
+  fisherReceiver: {fileID: 876763507}
+  crosshairController: {fileID: 0}
+  fisherController: {fileID: 0}
+  phase2ForceDetector: {fileID: 0}
+  phase2InputNormalizer: {fileID: 0}
+--- !u!4 &134866901
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 134866899}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 208528541}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &134866902
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 134866899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: afd04c1b78ea66a4f8a856bfcd3dc21f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableESP32Control: 1
+  eulerXDeadZone: 15
+  turnSensitivity: 1
+  gyroThreshold: 0.5
+  gyroMaxValue: 5
+  powerSmoothTime: 0.1
+  phase2RotationSensitivity: 1
+  fishReceiver: {fileID: 876763509}
+  fishMovement: {fileID: 0}
+  phase2ForceDetector: {fileID: 0}
+  phase2InputNormalizer: {fileID: 0}
 --- !u!1 &136304302
 GameObject:
   m_ObjectHideFlags: 0
@@ -667,6 +748,57 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!1 &208528535
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 208528541}
+  - component: {fileID: 208528540}
+  m_Layer: 0
+  m_Name: Esp32Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &208528540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208528535}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99fe8a85578ab69429c5ec9bc3474b96, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fishReceiver: {fileID: 876763509}
+  fisherReceiver: {fileID: 876763507}
+  fishController: {fileID: 134866902}
+  fisherController: {fileID: 134866900}
+  showDebugInfo: 1
+--- !u!4 &208528541
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 208528535}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 457.0976, y: 307.12073, z: -17.795937}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 134866901}
+  - {fileID: 876763508}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!21 &218209370
 Material:
   serializedVersion: 8
@@ -1001,8 +1133,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: timer
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
+  m_sharedMaterial: {fileID: -6190884618234057771, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1492,8 +1624,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: QUIT
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
+  m_sharedMaterial: {fileID: -6190884618234057771, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2063,6 +2195,89 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: -318}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &876763506
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 876763508}
+  - component: {fileID: 876763509}
+  - component: {fileID: 876763507}
+  m_Layer: 0
+  m_Name: ESP32Receiver
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &876763507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 876763506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5665ea0970bde47f98053874a572b225, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  portName: /dev/cu.usbmodem3C8427C2EE1C2
+  baudRate: 115200
+  reconnectInterval: 2
+  countsPerRevolution: 80
+  rawQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  relativeQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  eulerAngles: {x: 0, y: 0, z: 0}
+  encoderCount: 0
+  buttonPressed: 0
+  encoderSpeed: 0
+  encoderRPM: 0
+  isConnected: 0
+  isCalibrated: 0
+  dataReceivedCount: 0
+  connectionStatus: Not connected
+--- !u!4 &876763508
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 876763506}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 208528541}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &876763509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 876763506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18b787127b97d47429579ed462d68936, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  portName: /dev/cu.usbmodem3C8427C31A6C2
+  baudRate: 115200
+  reconnectInterval: 2
+  rawQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  relativeQuaternion: {x: 0, y: 0, z: 0, w: 1}
+  eulerAngles: {x: 0, y: 0, z: 0}
+  gyroMagnitude: 0
+  isConnected: 0
+  isCalibrated: 0
+  dataReceivedCount: 0
+  connectionStatus: Not connected
 --- !u!1 &902437767
 GameObject:
   m_ObjectHideFlags: 0
@@ -2419,8 +2634,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: description
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
+  m_sharedMaterial: {fileID: -6190884618234057771, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3191,8 +3406,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: someone win
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
+  m_sharedMaterial: {fileID: -6190884618234057771, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3319,8 +3534,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: RESTART
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
+  m_sharedMaterial: {fileID: -6190884618234057771, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -3624,6 +3839,7 @@ GameObject:
   - component: {fileID: 1453729935}
   - component: {fileID: 1453729936}
   - component: {fileID: 1453729937}
+  - component: {fileID: 1453729938}
   m_Layer: 5
   m_Name: Slider
   m_TagString: Untagged
@@ -3726,6 +3942,25 @@ MonoBehaviour:
   fisherColor: {r: 1, g: 1, b: 1, a: 1}
   phase2ProgressBar: {fileID: 0}
   smoothSpeed: 5
+--- !u!114 &1453729938
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1453729934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20276ef7bd1a2534eb57907618679993, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  progressSlider: {fileID: 1453729936}
+  handleImage: {fileID: 1188199503}
+  increasingSprite: {fileID: 21300000, guid: 93a4dca05edb5c347bf30ff4215ce857, type: 3}
+  decreasingSprite: {fileID: 21300000, guid: 360ce0fca18b39d40add5b9ff7df36c1, type: 3}
+  idleSprite: {fileID: 0}
+  changeThreshold: 0.001
+  enableDebugLog: 0
 --- !u!1 &1466493650
 GameObject:
   m_ObjectHideFlags: 0
@@ -4087,7 +4322,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -4153,7 +4388,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 0
+  m_hasFontAssetChanged: 1
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1540472386
@@ -5158,7 +5393,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: New Text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 9a3f8305cc86f3244a9fcda0090716d1, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -5224,7 +5459,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 0
+  m_hasFontAssetChanged: 1
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &2139311718
@@ -7837,3 +8072,4 @@ SceneRoots:
   - {fileID: 1146998843}
   - {fileID: 1341228676}
   - {fileID: 2105615441}
+  - {fileID: 208528541}
