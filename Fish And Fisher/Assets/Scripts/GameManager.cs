@@ -28,6 +28,10 @@ namespace FishAndFisher
         [Tooltip("Phase2场景名称")]
         [SerializeField] private string phase2SceneName = "Phase2";
 
+        [Header("结果UI引用")]
+        [Tooltip("游戏结果UI（Phase1时间到时显示）")]
+        [SerializeField] private GameResultUI resultUI;
+
         // 游戏状态
         private GameState currentState = GameState.Ready;
         private float remainingTime;
@@ -182,9 +186,16 @@ namespace FishAndFisher
             isGameRunning = false;
             currentState = GameState.Ended;
 
-            // 注意：这里不显示结果UI，因为会立即进入Phase2
-            // 实际上Phase1时间到意味着渔夫没有抓到鱼，应该显示鱼胜利
-            // 但根据新设计，Phase1不会自然结束（要么被钩住进Phase2，要么时间到鱼胜利）
+            // 显示结果UI - 鱼胜利
+            if (resultUI != null)
+            {
+                resultUI.ShowResult(Phase2.GameResult.FishWins);
+            }
+            else
+            {
+                Debug.LogWarning("[GameManager] 结果UI未设置！请在Inspector中分配。");
+            }
+
             Debug.Log("[GameManager] Phase1结束：时间到，鱼未被抓住");
         }
 

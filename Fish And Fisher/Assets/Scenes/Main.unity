@@ -853,11 +853,11 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 1512268775}
   - {fileID: 1224600422}
   - {fileID: 1020840149}
   - {fileID: 1060116378}
   - {fileID: 866667420}
-  - {fileID: 1512268775}
   m_Father: {fileID: 1341228676}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -985,6 +985,7 @@ MonoBehaviour:
   fishCaughtUI: {fileID: 820682100}
   transitionUI: {fileID: 557905092}
   phase2SceneName: Phase2
+  resultUI: {fileID: 1317079462}
 --- !u!4 &348738780
 Transform:
   m_ObjectHideFlags: 0
@@ -1764,7 +1765,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &757550122
@@ -2094,7 +2095,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &866667417
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2543,7 +2544,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: -48}
+  m_AnchoredPosition: {x: 0, y: -370}
   m_SizeDelta: {x: 800, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1020840150
@@ -2642,7 +2643,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &1060116377
@@ -2663,7 +2664,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1060116378
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3395,7 +3396,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 92}
+  m_AnchoredPosition: {x: 0, y: 341}
   m_SizeDelta: {x: 800, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1224600423
@@ -3494,7 +3495,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &1312125260
@@ -3622,7 +3623,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 1
+  m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1312125263
@@ -3665,6 +3666,9 @@ MonoBehaviour:
   resultPanel: {fileID: 303307461}
   winnerText: {fileID: 1224600424}
   descriptionText: {fileID: 1020840151}
+  resultImage: {fileID: 1512268776}
+  fishWinSprite: {fileID: 21300000, guid: 1ccb807034e48124ba914a98b23faec5, type: 3}
+  fisherWinSprite: {fileID: 21300000, guid: 4fcfebf32ea15e84180de1f5693a374b, type: 3}
   restartButton: {fileID: 1060116381}
   quitButton: {fileID: 866667417}
   fishWinTitle: FISH WINS!
@@ -3673,8 +3677,11 @@ MonoBehaviour:
   fisherWinDescription: The fisher caught the fish!
   fishWinColor: {r: 0.2, g: 0.6, b: 0.9, a: 1}
   fisherWinColor: {r: 0.9, g: 0.6, b: 0.2, a: 1}
-  showAnimationDuration: 0.5
-  enableScaleAnimation: 1
+  fadeInDuration: 0.5
+  enableAnyKeyReturn: 1
+  returnDelayAfterAnimation: 0.3
+  titleSceneName: TitlePage
+  enableESP32Return: 1
 --- !u!4 &1317079464
 Transform:
   m_ObjectHideFlags: 0
@@ -4414,7 +4421,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1512268775
 RectTransform:
   m_ObjectHideFlags: 0

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections;
 using FishAndFisher.Phase2;
 
 namespace FishAndFisher
@@ -20,7 +21,17 @@ namespace FishAndFisher
         [Tooltip("结果描述文本")]
         [SerializeField] private TextMeshProUGUI descriptionText;
 
-        [Header("按钮")]
+        [Header("结果图片设置")]
+        [Tooltip("结果图片的Image组件")]
+        [SerializeField] private Image resultImage;
+
+        [Tooltip("鱼胜利时显示的图片")]
+        [SerializeField] private Sprite fishWinSprite;
+
+        [Tooltip("渔夫胜利时显示的图片")]
+        [SerializeField] private Sprite fisherWinSprite;
+
+        [Header("按钮（可选，新设计不使用）")]
         [Tooltip("重新开始按钮")]
         [SerializeField] private Button restartButton;
 
@@ -48,15 +59,28 @@ namespace FishAndFisher
         [SerializeField] private Color fisherWinColor = new Color(0.9f, 0.6f, 0.2f); // 橙色
 
         [Header("动画设置")]
-        [Tooltip("面板显示动画时长")]
-        [SerializeField] private float showAnimationDuration = 0.5f;
+        [Tooltip("淡入动画时长")]
+        [SerializeField] private float fadeInDuration = 0.5f;
 
-        [Tooltip("是否启用缩放动画")]
-        [SerializeField] private bool enableScaleAnimation = true;
+        [Header("返回设置")]
+        [Tooltip("是否启用按任意键返回")]
+        [SerializeField] private bool enableAnyKeyReturn = true;
+
+        [Tooltip("动画完成后的等待时间（防止立即触发返回）")]
+        [SerializeField] private float returnDelayAfterAnimation = 0.3f;
+
+        [Tooltip("返回的目标场景名")]
+        [SerializeField] private string titleSceneName = "TitlePage";
+
+        [Header("ESP32设置")]
+        [Tooltip("是否启用ESP32按钮触发返回")]
+        [SerializeField] private bool enableESP32Return = true;
 
         private CanvasGroup canvasGroup;
         private bool isAnimating = false;
         private float animationTimer = 0f;
+        private bool isFullyDisplayed = false;
+        private bool wasESP32ButtonPressed = false;
 
         private void Awake()
         {
@@ -104,6 +128,12 @@ namespace FishAndFisher
             {
                 UpdateShowAnimation();
             }
+
+            // 检测按任意键返回
+            if (isFullyDisplayed && enableAnyKeyReturn)
+            {
+                CheckReturnInput();
+            }
         }
 
         /// <summary>
@@ -113,21 +143,46 @@ namespace FishAndFisher
         {
             if (resultPanel == null) return;
 
-            // 设置文本内容
+            // 设置文本和图片内容
             switch (result)
             {
                 case GameResult.FishWins:
                     SetResultContent(fishWinTitle, fishWinDescription, fishWinColor);
+                    SetResultImage(fishWinSprite);
                     break;
                 case GameResult.FisherWins:
                     SetResultContent(fisherWinTitle, fisherWinDescription, fisherWinColor);
+                    SetResultImage(fisherWinSprite);
                     break;
             }
+
+            // 重置状态
+            isFullyDisplayed = false;
+            wasESP32ButtonPressed = false;
 
             // 显示面板
             Show();
 
             Debug.Log($"[GameResultUI] 显示结果: {result}");
+        }
+
+        /// <summary>
+        /// 设置结果图片
+        /// </summary>
+        private void SetResultImage(Sprite sprite)
+        {
+            if (resultImage != null)
+            {
+                if (sprite != null)
+                {
+                    resultImage.sprite = sprite;
+                    resultImage.gameObject.SetActive(true);
+                }
+                else
+                {
+                    resultImage.gameObject.SetActive(false);
+                }
+            }
         }
 
         /// <summary>
@@ -156,19 +211,21 @@ namespace FishAndFisher
 
             resultPanel.SetActive(true);
 
-            // 启动动画
-            if (enableScaleAnimation)
+            // 隐藏按钮（新设计使用按任意键返回）
+            if (restartButton != null)
             {
-                isAnimating = true;
-                animationTimer = 0f;
-                resultPanel.transform.localScale = Vector3.zero;
-                canvasGroup.alpha = 0f;
+                restartButton.gameObject.SetActive(false);
             }
-            else
+            if (quitButton != null)
             {
-                resultPanel.transform.localScale = Vector3.one;
-                canvasGroup.alpha = 1f;
+                quitButton.gameObject.SetActive(false);
             }
+
+            // 启动淡入动画
+            isAnimating = true;
+            animationTimer = 0f;
+            resultPanel.transform.localScale = Vector3.one;
+            canvasGroup.alpha = 0f;
         }
 
         /// <summary>
@@ -183,35 +240,115 @@ namespace FishAndFisher
         }
 
         /// <summary>
-        /// 更新显示动画
+        /// 更新显示动画（纯淡入）
         /// </summary>
         private void UpdateShowAnimation()
         {
             animationTimer += Time.deltaTime;
-            float progress = Mathf.Clamp01(animationTimer / showAnimationDuration);
+            float progress = Mathf.Clamp01(animationTimer / fadeInDuration);
 
-            // 使用缓动函数（EaseOutBack）
-            float scale = EaseOutBack(progress);
-
-            resultPanel.transform.localScale = Vector3.one * scale;
+            // 纯淡入动画
             canvasGroup.alpha = progress;
 
             // 动画完成
             if (progress >= 1f)
             {
                 isAnimating = false;
+                // 延迟启用返回功能
+                StartCoroutine(DelayedEnableReturn());
             }
         }
 
         /// <summary>
-        /// 缓动函数 - EaseOutBack
+        /// 延迟启用返回功能
         /// </summary>
-        private float EaseOutBack(float t)
+        private IEnumerator DelayedEnableReturn()
         {
-            float c1 = 1.70158f;
-            float c3 = c1 + 1f;
+            yield return new WaitForSeconds(returnDelayAfterAnimation);
+            isFullyDisplayed = true;
+            Debug.Log("[GameResultUI] 按任意键返回标题页面");
+        }
 
-            return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+        /// <summary>
+        /// 检测返回输入（键鼠任意键 + ESP32按钮）
+        /// </summary>
+        private void CheckReturnInput()
+        {
+            bool shouldReturn = false;
+
+            // 检测键鼠任意键
+            if (UnityEngine.Input.anyKeyDown)
+            {
+                Debug.Log("[GameResultUI] 检测到键鼠输入");
+                shouldReturn = true;
+            }
+
+            // 检测ESP32渔夫按钮
+            if (enableESP32Return && !shouldReturn)
+            {
+                shouldReturn = CheckESP32Button();
+            }
+
+            // 执行返回
+            if (shouldReturn)
+            {
+                ReturnToTitlePage();
+            }
+        }
+
+        /// <summary>
+        /// 检测ESP32按钮输入（边沿触发）
+        /// </summary>
+        private bool CheckESP32Button()
+        {
+            FisherReceiver fisherReceiver = null;
+
+            // 优先从ESP32Manager获取
+            if (ESP32Manager.Instance != null)
+            {
+                fisherReceiver = ESP32Manager.Instance.fisherReceiver;
+            }
+
+            // 如果ESP32Manager不存在，尝试直接查找
+            if (fisherReceiver == null)
+            {
+                fisherReceiver = FindFirstObjectByType<FisherReceiver>();
+            }
+
+            // 检查连接状态和按钮输入
+            if (fisherReceiver != null && fisherReceiver.isConnected)
+            {
+                bool isButtonPressed = fisherReceiver.buttonPressed;
+
+                // 边沿检测：只在按钮从未按下变为按下时触发
+                if (isButtonPressed && !wasESP32ButtonPressed)
+                {
+                    wasESP32ButtonPressed = isButtonPressed;
+                    Debug.Log("[GameResultUI] 检测到ESP32按钮输入");
+                    return true;
+                }
+
+                wasESP32ButtonPressed = isButtonPressed;
+            }
+            else
+            {
+                wasESP32ButtonPressed = false;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 返回标题页面
+        /// </summary>
+        private void ReturnToTitlePage()
+        {
+            Debug.Log($"[GameResultUI] 正在返回场景: {titleSceneName}");
+
+            // 禁用进一步的输入检测
+            isFullyDisplayed = false;
+
+            UnityEngine.SceneManagement.SceneManager.LoadScene(titleSceneName);
         }
 
         /// <summary>
@@ -269,8 +406,11 @@ namespace FishAndFisher
             fisherWinDescription = "The fisher caught the fish!";
             fishWinColor = new Color(0.2f, 0.6f, 0.9f);
             fisherWinColor = new Color(0.9f, 0.6f, 0.2f);
-            showAnimationDuration = 0.5f;
-            enableScaleAnimation = true;
+            fadeInDuration = 0.5f;
+            enableAnyKeyReturn = true;
+            returnDelayAfterAnimation = 0.3f;
+            titleSceneName = "TitlePage";
+            enableESP32Return = true;
         }
     }
 }
