@@ -157,6 +157,13 @@ public class ESP32FisherController : MonoBehaviour
         else
         {
             Debug.Log($"[ESP32FisherController] 找到 FisherCrosshairController: {crosshairController.gameObject.name}");
+
+            // 启用ESP32输入模式，禁用鼠标输入
+            if (enableESP32Control)
+            {
+                crosshairController.SetUseESP32Input(true);
+                Debug.Log("[ESP32FisherController] 已启用 FisherCrosshairController 的 ESP32 输入模式");
+            }
         }
 
         // FisherController 是场景中的组件，需要重新查找
