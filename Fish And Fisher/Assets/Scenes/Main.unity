@@ -284,11 +284,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseSpeed: 2
-  maxSpeed: 8
+  maxSpeed: 5
   acceleration: 3
   deceleration: 3
   turnDampening: 0
-  turnSpeedBase: 120
+  turnSpeedBase: 20
   turnSpeedAtMaxSpeed: 60
   turnAngleLarge: 60
   turnAngleSmall: 30
@@ -968,6 +968,10 @@ MonoBehaviour:
   fisherCrosshair: {fileID: 785208428}
   logDistance: 0
   logInterval: 0.5
+  minDistanceThreshold: 1
+  maxDistanceMultiplier: 1
+  maxOutputValue: 3.3
+  levelCount: 4
 --- !u!4 &337154161
 Transform:
   m_ObjectHideFlags: 0
@@ -1841,7 +1845,7 @@ MonoBehaviour:
   swingDuration: 0.5
   swingCooldown: 1
   rodAnimator: {fileID: 1612987802}
-  hookDetectionRadius: 5
+  hookDetectionRadius: 8
   hookableLayer:
     serializedVersion: 2
     m_Bits: 256
@@ -5218,6 +5222,8 @@ MonoBehaviour:
   isCalibrated: 0
   dataReceivedCount: 0
   connectionStatus: Not connected
+  enableProximitySending: 1
+  proximitySendInterval: 0.1
 --- !u!4 &1960643618
 Transform:
   m_ObjectHideFlags: 0
