@@ -22,6 +22,19 @@ namespace FishAndFisher
         [Tooltip("日志输出频率（秒）")]
         [SerializeField] private float logInterval = 0.5f;
 
+        [Header("距离映射设置")]
+        [Tooltip("最小距离阈值（小于此距离返回0）")]
+        [SerializeField] private float minDistanceThreshold = 1f;
+
+        [Tooltip("最大距离阈值系数（相对于边界对角线的比例，1.0 = 整个对角线）")]
+        [SerializeField] private float maxDistanceMultiplier = 1.0f;
+
+        [Tooltip("最大输出电压值")]
+        [SerializeField] private float maxOutputValue = 3.3f;
+
+        [Tooltip("档位数量")]
+        [SerializeField] private int levelCount = 4;
+
         // 单例实例
         private static DistanceTracker instance;
 
@@ -30,6 +43,10 @@ namespace FishAndFisher
         private Vector2 fishPosition2D;       // 鱼的2D位置（XZ平面）
         private Vector2 crosshairPosition2D;  // 准心的2D位置（XZ平面）
         private Vector2 directionToCrosshair; // 从鱼指向准心的方向向量（归一化）
+
+        // 距离映射数据（用于调试）
+        private int currentProximityLevel;    // 当前振动档位
+        private float currentProximityValue;  // 当前振动值
 
         // 日志计时器
         private float lastLogTime;
@@ -72,6 +89,16 @@ namespace FishAndFisher
         /// 从鱼指向准心的方向向量（归一化）
         /// </summary>
         public Vector2 DirectionToCrosshair => directionToCrosshair;
+
+        /// <summary>
+        /// 当前振动档位（只读，用于调试）
+        /// </summary>
+        public int CurrentProximityLevel => currentProximityLevel;
+
+        /// <summary>
+        /// 当前振动值（只读，用于调试）
+        /// </summary>
+        public float CurrentProximityValue => currentProximityValue;
 
         private void Awake()
         {
@@ -121,6 +148,9 @@ namespace FishAndFisher
         {
             // 更新距离数据
             UpdateDistanceData();
+
+            // 更新振动档位和值
+            UpdateProximityData();
 
             // 输出日志（如果启用）
             if (logDistance && Time.time - lastLogTime > logInterval)
@@ -212,6 +242,81 @@ namespace FishAndFisher
         {
             fisherCrosshair = crosshair;
         }
+
+        #region 距离映射功能
+
+        /// <summary>
+        /// 更新振动档位和值
+        /// </summary>
+        private void UpdateProximityData()
+        {
+            currentProximityLevel = CalculateProximityLevel();
+            currentProximityValue = CalculateProximityValue(currentProximityLevel);
+        }
+
+        /// <summary>
+        /// 从GameBoundary获取最大距离（对角线长度）
+        /// </summary>
+        private float GetMaxDistanceFromBoundary()
+        {
+            if (GameBoundary.Instance == null) return 50f; // 默认值
+
+            Vector2 size = GameBoundary.Instance.BoundarySize;
+            float diagonal = Mathf.Sqrt(size.x * size.x + size.y * size.y);
+            return diagonal * maxDistanceMultiplier;
+        }
+
+        /// <summary>
+        /// 计算当前振动档位（0表示超出范围，1-levelCount表示有效档位）
+        /// </summary>
+        private int CalculateProximityLevel()
+        {
+            float maxDistance = GetMaxDistanceFromBoundary();
+
+            // 超出范围返回0
+            if (currentDistance2D < minDistanceThreshold || currentDistance2D > maxDistance)
+                return 0;
+
+            // 计算归一化距离 (0 = 最近, 1 = 最远)
+            float normalizedDistance = (currentDistance2D - minDistanceThreshold) / (maxDistance - minDistanceThreshold);
+
+            // 分档：距离越小档位越高
+            // normalizedDistance 0-0.25 → level 4
+            // normalizedDistance 0.25-0.5 → level 3
+            // normalizedDistance 0.5-0.75 → level 2
+            // normalizedDistance 0.75-1.0 → level 1
+            int level = levelCount - Mathf.FloorToInt(normalizedDistance * levelCount);
+            return Mathf.Clamp(level, 1, levelCount);
+        }
+
+        /// <summary>
+        /// 根据档位计算振动值
+        /// </summary>
+        private float CalculateProximityValue(int level)
+        {
+            if (level == 0) return 0f;
+
+            // 每档的电压值 = maxOutputValue / levelCount * level
+            return (maxOutputValue / levelCount) * level;
+        }
+
+        /// <summary>
+        /// 获取当前振动档位（0-levelCount，0表示超出范围）
+        /// </summary>
+        public int GetProximityLevel()
+        {
+            return currentProximityLevel;
+        }
+
+        /// <summary>
+        /// 获取当前振动值（0 或 档位对应的电压值）
+        /// </summary>
+        public float GetProximityValue()
+        {
+            return currentProximityValue;
+        }
+
+        #endregion
 
         /// <summary>
         /// 绘制Gizmos（可视化距离）

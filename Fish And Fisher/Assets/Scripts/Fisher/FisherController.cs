@@ -19,7 +19,10 @@ namespace FishAndFisher.Fisher
         [SerializeField] private float swingDuration = 0.5f;
 
         [Tooltip("鱼竿挥动冷却时间（秒）")]
-        [SerializeField] private float swingCooldown = 1f;
+        [SerializeField] private float swingCooldown = 1.5f;
+
+        [Tooltip("鱼竿 Animator（用于播放 rod lift up 动画）")]
+        [SerializeField] private Animator rodAnimator;
 
         [Header("钩子设置")]
         [Tooltip("钩子检测半径")]
@@ -137,6 +140,18 @@ namespace FishAndFisher.Fisher
 
             // 重置发射标记
             hasFireLineThisSwing = false;
+
+            // 直接播放鱼竿抬起动画
+            if (rodAnimator != null)
+            {
+                rodAnimator.Play("rod lift up", 0, 0f);
+            }
+
+            // 触发鱼漂升起动画
+            if (crosshairController != null)
+            {
+                crosshairController.TriggerFloatRise();
+            }
         }
 
         /// <summary>
@@ -156,17 +171,9 @@ namespace FishAndFisher.Fisher
                 return;
             }
 
-            // TODO: 在这里添加鱼竿的动画效果
-            // 例如：旋转、缩放、位置变化等
-            if (fishingRod != null)
-            {
-                // 简单示例：让鱼竿进行一个挥动旋转
-                // 使用Sin曲线实现挥动效果
-                float angle = Mathf.Sin(progress * Mathf.PI) * 30f;
-                fishingRod.localRotation = Quaternion.Euler(-angle, 0, 0);
-            }
+            // 鱼竿动画由 Animator 控制，这里只处理碰撞检测逻辑
 
-            // 在抬起结束时（progress >= 0.5）发射钓鱼线和检测碰撞
+            // 在动画中点（progress >= 0.5）检测碰撞
             if (progress >= 0.5f && !hasFireLineThisSwing)
             {
                 hasFireLineThisSwing = true;
@@ -192,11 +199,7 @@ namespace FishAndFisher.Fisher
 
             Debug.Log("[FisherController] 挥动结束！");
 
-            // 重置鱼竿位置
-            if (fishingRod != null)
-            {
-                fishingRod.localRotation = Quaternion.identity;
-            }
+            // 鱼竿旋转由 Animator 控制，无需手动重置
         }
 
         /// <summary>

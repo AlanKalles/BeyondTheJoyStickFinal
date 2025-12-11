@@ -17,6 +17,25 @@ namespace FishAndFisher.Fisher
         [Tooltip("视觉准心Transform - 显示在倾斜平面上的Quad")]
         [SerializeField] private Transform visualCrosshair;
 
+        [Header("鱼漂动画设置")]
+        [Tooltip("鱼漂 Animator（用于控制 floating 动画）")]
+        [SerializeField] private Animator floatAnimator;
+
+        [Tooltip("鱼漂升起高度")]
+        [SerializeField] private float floatRiseHeight = 4f;
+
+        [Tooltip("鱼漂升起时间（秒）")]
+        [SerializeField] private float floatRiseDuration = 0.5f;
+
+        [Tooltip("鱼漂落下时间（秒）")]
+        [SerializeField] private float floatFallDuration = 0.5f;
+
+        // 鱼漂动画状态
+        private enum FloatAnimState { Idle, Rising, Falling }
+        private FloatAnimState floatAnimState = FloatAnimState.Idle;
+        private float floatAnimTimer = 0f;
+        private float currentFloatOffset = 0f;
+
         [Header("平面设置")]
         [Tooltip("是否使用全局游戏平面高度（GameBoundary.GamePlaneY）")]
         [SerializeField] private bool useGlobalPlaneHeight = true;
@@ -128,6 +147,9 @@ namespace FishAndFisher.Fisher
             // 平滑移动逻辑准心
             MoveLogicCrosshair();
 
+            // 更新鱼漂升起/落下动画
+            UpdateFloatAnimation();
+
             // 同步视觉准心位置
             SyncVisualCrosshair();
         }
@@ -225,14 +247,94 @@ namespace FishAndFisher.Fisher
         {
             if (visualCrosshair == null || logicCrosshair == null) return;
 
-            // 视觉准心使用逻辑准心的XZ坐标，但使用不同的Y坐标
+            // 视觉准心使用逻辑准心的XZ坐标，Y坐标包含升起/落下偏移
             Vector3 syncPosition = new Vector3(
                 logicCrosshair.position.x,
-                visualPlaneY,
+                visualPlaneY + currentFloatOffset,
                 logicCrosshair.position.z
             );
 
             visualCrosshair.position = syncPosition;
+        }
+
+        /// <summary>
+        /// 更新鱼漂升起/落下动画
+        /// </summary>
+        private void UpdateFloatAnimation()
+        {
+            if (floatAnimState == FloatAnimState.Idle) return;
+
+            floatAnimTimer += Time.deltaTime;
+
+            switch (floatAnimState)
+            {
+                case FloatAnimState.Rising:
+                    UpdateRisingAnimation();
+                    break;
+                case FloatAnimState.Falling:
+                    UpdateFallingAnimation();
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 更新升起动画
+        /// </summary>
+        private void UpdateRisingAnimation()
+        {
+            float progress = Mathf.Clamp01(floatAnimTimer / floatRiseDuration);
+
+            // 使用 EaseOutQuad 曲线让升起更自然
+            float easedProgress = 1f - (1f - progress) * (1f - progress);
+            currentFloatOffset = easedProgress * floatRiseHeight;
+
+            // 升起完成后进入落下状态
+            if (progress >= 1f)
+            {
+                floatAnimState = FloatAnimState.Falling;
+                floatAnimTimer = 0f;
+            }
+        }
+
+        /// <summary>
+        /// 更新落下动画
+        /// </summary>
+        private void UpdateFallingAnimation()
+        {
+            float progress = Mathf.Clamp01(floatAnimTimer / floatFallDuration);
+
+            // 使用 EaseInQuad 曲线让落下更自然（加速下落）
+            float easedProgress = progress * progress;
+            currentFloatOffset = floatRiseHeight * (1f - easedProgress);
+
+            // 落下完成后恢复空闲状态
+            if (progress >= 1f)
+            {
+                floatAnimState = FloatAnimState.Idle;
+                currentFloatOffset = 0f;
+
+                // 恢复 floating 动画
+                if (floatAnimator != null)
+                {
+                    floatAnimator.speed = 1f;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 触发鱼漂升起动画（供 FisherController 调用）
+        /// </summary>
+        public void TriggerFloatRise()
+        {
+            floatAnimState = FloatAnimState.Rising;
+            floatAnimTimer = 0f;
+            currentFloatOffset = 0f;
+
+            // 暂停 floating 动画
+            if (floatAnimator != null)
+            {
+                floatAnimator.speed = 0f;
+            }
         }
 
         /// <summary>

@@ -31,6 +31,13 @@ public class FisherReceiver : MonoBehaviour
     public int dataReceivedCount = 0;
     public string connectionStatus = "Not connected";
 
+    [Header("距离数据发送设置")]
+    [Tooltip("是否启用距离数据发送")]
+    public bool enableProximitySending = true;
+
+    [Tooltip("发送间隔（秒）")]
+    public float proximitySendInterval = 0.1f;  // 100ms
+
     SerialPort serial;
     Thread readThread;
     volatile bool running = false;
