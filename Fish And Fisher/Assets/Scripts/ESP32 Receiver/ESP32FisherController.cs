@@ -181,6 +181,22 @@ public class ESP32FisherController : MonoBehaviour
         phase2ForceDetector = FindFirstObjectByType<Phase2ForceDetector>();
         phase2InputNormalizer = FindFirstObjectByType<Phase2InputNormalizer>();
 
+        // 启用Phase2组件的ESP32输入模式
+        if (enableESP32Control)
+        {
+            if (phase2ForceDetector != null)
+            {
+                phase2ForceDetector.SetUseESP32Force(true);
+                Debug.Log("[ESP32FisherController] 已启用 Phase2ForceDetector 的 ESP32 力度模式");
+            }
+
+            if (phase2InputNormalizer != null)
+            {
+                phase2InputNormalizer.SetUseESP32Input(true);
+                Debug.Log("[ESP32FisherController] 已启用 Phase2InputNormalizer 的 ESP32 输入模式");
+            }
+        }
+
         // 从GameBoundary获取边界（每个场景可能不同）
         if (GameBoundary.Instance != null)
         {
