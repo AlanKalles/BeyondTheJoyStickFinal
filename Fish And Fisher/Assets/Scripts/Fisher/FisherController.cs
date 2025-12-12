@@ -63,6 +63,10 @@ namespace FishAndFisher.Fisher
         private float currentRotationAngle = 0f;
         private float rotationVelocity = 0f;
 
+        // ESP32 Phase2旋转输入
+        private bool useESP32Phase2Rotation = false;
+        private float esp32TargetRotation = 0f;
+
         private void Awake()
         {
             // 获取准心控制器
@@ -345,29 +349,38 @@ namespace FishAndFisher.Fisher
                 return;
             }
 
-            // 获取鼠标位置相对屏幕中心的方向
-            Vector2 mousePosition = Mouse.current.position.ReadValue();
-            float screenCenterX = Screen.width / 2f;
-            float deltaX = mousePosition.x - screenCenterX;
+            float targetAngle;
 
-            // 确定目标旋转角度
-            float targetAngle = 0f;
-            float deadZone = 5f;
-
-            if (Mathf.Abs(deltaX) < deadZone)
+            if (useESP32Phase2Rotation)
             {
-                // 中间位置
-                targetAngle = 0f;
-            }
-            else if (deltaX < 0)
-            {
-                // 左侧
-                targetAngle = leftRotationAngle;
+                // ESP32模式：使用外部设置的目标角度
+                targetAngle = esp32TargetRotation;
             }
             else
             {
-                // 右侧
-                targetAngle = rightRotationAngle;
+                // 键鼠模式：获取鼠标位置相对屏幕中心的方向
+                Vector2 mousePosition = Mouse.current.position.ReadValue();
+                float screenCenterX = Screen.width / 2f;
+                float deltaX = mousePosition.x - screenCenterX;
+
+                // 确定目标旋转角度
+                float deadZone = 5f;
+
+                if (Mathf.Abs(deltaX) < deadZone)
+                {
+                    // 中间位置
+                    targetAngle = 0f;
+                }
+                else if (deltaX < 0)
+                {
+                    // 左侧
+                    targetAngle = leftRotationAngle;
+                }
+                else
+                {
+                    // 右侧
+                    targetAngle = rightRotationAngle;
+                }
             }
 
             // 平滑插值到目标角度
@@ -380,6 +393,47 @@ namespace FishAndFisher.Fisher
 
             // 应用旋转（Y轴旋转）
             rodPivot.localRotation = Quaternion.Euler(0f, currentRotationAngle, 0f);
+        }
+
+        /// <summary>
+        /// 设置ESP32 Phase2旋转目标角度
+        /// </summary>
+        /// <param name="rotationInput">归一化旋转输入（-1到1，-1=左，1=右）</param>
+        public void SetESP32Phase2Rotation(float rotationInput)
+        {
+            // 将归一化输入映射到角度
+            // rotationInput > 0 → 右转（rightRotationAngle）
+            // rotationInput < 0 → 左转（leftRotationAngle）
+            if (Mathf.Abs(rotationInput) < 0.1f)
+            {
+                esp32TargetRotation = 0f;
+            }
+            else if (rotationInput > 0)
+            {
+                esp32TargetRotation = Mathf.Lerp(0f, rightRotationAngle, rotationInput);
+            }
+            else
+            {
+                esp32TargetRotation = Mathf.Lerp(0f, leftRotationAngle, -rotationInput);
+            }
+        }
+
+        /// <summary>
+        /// 启用ESP32 Phase2旋转控制
+        /// </summary>
+        public void EnableESP32Phase2Rotation()
+        {
+            useESP32Phase2Rotation = true;
+            Debug.Log("[FisherController] ESP32 Phase2旋转控制已启用");
+        }
+
+        /// <summary>
+        /// 禁用ESP32 Phase2旋转控制
+        /// </summary>
+        public void DisableESP32Phase2Rotation()
+        {
+            useESP32Phase2Rotation = false;
+            Debug.Log("[FisherController] ESP32 Phase2旋转控制已禁用");
         }
 
         /// <summary>

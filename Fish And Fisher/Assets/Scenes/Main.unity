@@ -283,9 +283,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0407ce9baa84324e9fc8961807d71dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseSpeed: 2
+  baseSpeed: 1
   maxSpeed: 8
-  acceleration: 3
+  acceleration: 2
   deceleration: 3
   turnDampening: 0
   turnSpeedBase: 20
@@ -735,6 +735,7 @@ MonoBehaviour:
   zAxisMin: -45
   zAxisMax: 45
   crosshairSmoothTime: 0.1
+  phase2RotationDeadZone: 15
   phase2RotationSensitivity: 1
   encoderSpeedMax: 500
   fisherReceiver: {fileID: 1960643617}
@@ -774,7 +775,8 @@ MonoBehaviour:
   turnSensitivity: 1
   gyroThreshold: 50
   gyroMaxValue: 800
-  powerSmoothTime: 0.1
+  speedSmoothTime: 0.15
+  phase2RotationDeadZone: 15
   phase2RotationSensitivity: 1
   fishReceiver: {fileID: 1960643619}
   fishMovement: {fileID: 0}

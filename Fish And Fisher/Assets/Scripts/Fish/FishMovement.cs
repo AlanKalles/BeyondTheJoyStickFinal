@@ -288,7 +288,12 @@ namespace FishAndFisher.Fish
         private void UpdateSpeed()
         {
             // 确定目标速度
-            if (!isJumpBoosting)
+            if (useESP32SpeedControl)
+            {
+                // ESP32速度控制模式：直接使用ESP32设置的目标速度
+                targetSpeed = esp32TargetSpeed;
+            }
+            else if (!isJumpBoosting)
             {
                 if (moveInput.magnitude < 0.1f)
                 {
@@ -576,6 +581,45 @@ namespace FishAndFisher.Fish
         {
             return isJumpBoosting;
         }
+
+        /// <summary>
+        /// 启用ESP32速度控制模式
+        /// </summary>
+        public void EnableESP32SpeedControl()
+        {
+            useESP32SpeedControl = true;
+            esp32TargetSpeed = baseSpeed;
+            Debug.Log("[FishMovement] ESP32速度控制模式已启用");
+        }
+
+        /// <summary>
+        /// 禁用ESP32速度控制模式
+        /// </summary>
+        public void DisableESP32SpeedControl()
+        {
+            useESP32SpeedControl = false;
+            Debug.Log("[FishMovement] ESP32速度控制模式已禁用");
+        }
+
+        /// <summary>
+        /// 设置ESP32目标速度（0-1归一化值，会映射到baseSpeed-maxSpeed）
+        /// </summary>
+        /// <param name="normalizedSpeed">归一化速度值（0=baseSpeed, 1=maxSpeed）</param>
+        public void SetESP32Speed(float normalizedSpeed)
+        {
+            normalizedSpeed = Mathf.Clamp01(normalizedSpeed);
+            esp32TargetSpeed = Mathf.Lerp(baseSpeed, maxSpeed, normalizedSpeed);
+        }
+
+        /// <summary>
+        /// 获取基础速度（供外部参考）
+        /// </summary>
+        public float GetBaseSpeed() => baseSpeed;
+
+        /// <summary>
+        /// 获取最大速度（供外部参考）
+        /// </summary>
+        public float GetMaxSpeed() => maxSpeed;
 
         /// <summary>
         /// 获取调试信息

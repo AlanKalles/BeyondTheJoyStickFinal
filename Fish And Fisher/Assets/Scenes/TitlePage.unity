@@ -1072,7 +1072,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5665ea0970bde47f98053874a572b225, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C2EE1C2
+  portName: COM11
   baudRate: 115200
   reconnectInterval: 2
   countsPerRevolution: 80
@@ -1087,6 +1087,8 @@ MonoBehaviour:
   isCalibrated: 0
   dataReceivedCount: 0
   connectionStatus: Not connected
+  enableProximitySending: 1
+  proximitySendInterval: 0.1
 --- !u!4 &990087951
 Transform:
   m_ObjectHideFlags: 0
@@ -1114,7 +1116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b787127b97d47429579ed462d68936, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C31A6C2
+  portName: COM13
   baudRate: 115200
   reconnectInterval: 2
   rawQuaternion: {x: 0, y: 0, z: 0, w: 1}
@@ -1335,6 +1337,7 @@ MonoBehaviour:
   zAxisMin: -45
   zAxisMax: 45
   crosshairSmoothTime: 0.1
+  phase2RotationDeadZone: 15
   phase2RotationSensitivity: 1
   encoderSpeedMax: 500
   fisherReceiver: {fileID: 990087950}
@@ -1374,7 +1377,8 @@ MonoBehaviour:
   turnSensitivity: 1
   gyroThreshold: 0.5
   gyroMaxValue: 5
-  powerSmoothTime: 0.1
+  speedSmoothTime: 0.15
+  phase2RotationDeadZone: 15
   phase2RotationSensitivity: 1
   fishReceiver: {fileID: 990087952}
   fishMovement: {fileID: 0}
@@ -1889,6 +1893,7 @@ MonoBehaviour:
   hookAnimator: {fileID: 141869281}
   startTriggerName: start
   waitBeforeSceneLoad: 0.1
+  enableESP32Trigger: 1
   allowMultipleClicks: 1
   debugMode: 1
 --- !u!1660057539 &9223372036854775807

@@ -155,6 +155,7 @@ MonoBehaviour:
   zAxisMin: -45
   zAxisMax: 45
   crosshairSmoothTime: 0.1
+  phase2RotationDeadZone: 15
   phase2RotationSensitivity: 1
   encoderSpeedMax: 500
   fisherReceiver: {fileID: 876763507}
@@ -194,7 +195,8 @@ MonoBehaviour:
   turnSensitivity: 1
   gyroThreshold: 0.5
   gyroMaxValue: 5
-  powerSmoothTime: 0.1
+  speedSmoothTime: 0.15
+  phase2RotationDeadZone: 30
   phase2RotationSensitivity: 1
   fishReceiver: {fileID: 876763509}
   fishMovement: {fileID: 0}
@@ -332,13 +334,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0407ce9baa84324e9fc8961807d71dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  baseSpeed: 2
-  maxSpeed: 8
+  baseSpeed: 0
+  maxSpeed: 0
   acceleration: 3
   deceleration: 3
   turnDampening: 0
-  turnSpeedBase: 120
-  turnSpeedAtMaxSpeed: 60
+  turnSpeedBase: 0
+  turnSpeedAtMaxSpeed: 0
   turnAngleLarge: 60
   turnAngleSmall: 30
   directionSmoothTime: 0.1
@@ -1735,6 +1737,7 @@ MonoBehaviour:
   fishingRod: {fileID: 1612987801}
   swingDuration: 0.5
   swingCooldown: 1
+  rodAnimator: {fileID: 0}
   hookDetectionRadius: 1
   hookableLayer:
     serializedVersion: 2
@@ -1758,6 +1761,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   logicCrosshair: {fileID: 1683114218}
   visualCrosshair: {fileID: 1501919979}
+  floatAnimator: {fileID: 0}
+  floatRiseHeight: 4
+  floatRiseDuration: 0.5
+  floatFallDuration: 0.5
   useGlobalPlaneHeight: 1
   fishPlaneY: -0.58
   visualPlaneY: 0.23
@@ -1995,7 +2002,8 @@ MonoBehaviour:
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   fisherCamera: {fileID: 644324369}
   useESP32Input: 0
-  esp32DeadZone: 5
+  esp32FishDeadZone: 30
+  esp32FisherDeadZone: 15
 --- !u!114 &834349758
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2232,7 +2240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5665ea0970bde47f98053874a572b225, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C2EE1C2
+  portName: COM11
   baudRate: 115200
   reconnectInterval: 2
   countsPerRevolution: 80
@@ -2247,6 +2255,8 @@ MonoBehaviour:
   isCalibrated: 0
   dataReceivedCount: 0
   connectionStatus: Not connected
+  enableProximitySending: 1
+  proximitySendInterval: 0.1
 --- !u!4 &876763508
 Transform:
   m_ObjectHideFlags: 0
@@ -2274,7 +2284,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b787127b97d47429579ed462d68936, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C31A6C2
+  portName: COM13
   baudRate: 115200
   reconnectInterval: 2
   rawQuaternion: {x: 0, y: 0, z: 0, w: 1}

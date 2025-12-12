@@ -36,6 +36,9 @@ public class ESP32FisherController : MonoBehaviour
     public float crosshairSmoothTime = 0.1f;
 
     [Header("Phase2设置")]
+    [Tooltip("Phase2旋转死区（度）- eulerAngles.z 需要超过此值才判定为左/右")]
+    public float phase2RotationDeadZone = 15f;
+
     [Tooltip("Phase2旋转灵敏度")]
     [Range(0.5f, 2f)]
     public float phase2RotationSensitivity = 1f;
@@ -236,18 +239,16 @@ public class ESP32FisherController : MonoBehaviour
     /// </summary>
     private void UpdatePhase1Input()
     {
-        // === 准心位置映射 ===
-        // Y轴（上下）→ Z坐标
-        // yMin → minBoundZ（最下），yMax → maxBoundZ（最上），0 → 中点
+        // === 准心位置映射（反转方向）===
+        // Y轴（上下）→ Z坐标（反转：鱼竿往上，渔钩往上/Z增大）
         float eulerY = fisherReceiver.eulerAngles.y;
         float normalizedY = Mathf.InverseLerp(yAxisMin, yAxisMax, eulerY);
-        float targetZ = Mathf.Lerp(minBoundZ, maxBoundZ, normalizedY);
+        float targetZ = Mathf.Lerp(maxBoundZ, minBoundZ, normalizedY);
 
-        // Z轴（左右）→ X坐标
-        // zMin → minBoundX（最左），zMax → maxBoundX（最右），0 → 中点
+        // Z轴（左右）→ X坐标（反转：鱼竿往右，渔钩往右/X增大）
         float eulerZ = fisherReceiver.eulerAngles.z;
         float normalizedZ = Mathf.InverseLerp(zAxisMin, zAxisMax, eulerZ);
-        float targetX = Mathf.Lerp(minBoundX, maxBoundX, normalizedZ);
+        float targetX = Mathf.Lerp(maxBoundX, minBoundX, normalizedZ);
 
         // 目标位置
         Vector3 targetPosition = new Vector3(targetX, 0, targetZ);
@@ -288,15 +289,37 @@ public class ESP32FisherController : MonoBehaviour
     /// </summary>
     private void UpdatePhase2Input()
     {
-        // === 旋转控制 ===
+        // === 旋转控制（带死区，与方向判定同步）===
         // 使用eulerAngles.z作为旋转输入
         float eulerZ = fisherReceiver.eulerAngles.z;
         CurrentPhase2Rotation = eulerZ * phase2RotationSensitivity;
 
-        // 设置Phase2输入归一化器
+        // 设置Phase2输入归一化器（用于方向判定）
         if (phase2InputNormalizer != null)
         {
             phase2InputNormalizer.SetESP32FisherRotation(eulerZ);
+        }
+
+        // 计算鱼竿旋转输入（带死区）
+        float rotationInput;
+        if (Mathf.Abs(eulerZ) < phase2RotationDeadZone)
+        {
+            // 死区内：无旋转
+            rotationInput = 0f;
+        }
+        else
+        {
+            // 死区外：计算旋转量
+            // 反转方向：负角度 → 右方向，正角度 → 左方向（与Phase1准心映射一致）
+            float effectiveAngle = eulerZ - Mathf.Sign(eulerZ) * phase2RotationDeadZone;
+            rotationInput = -effectiveAngle / (90f - phase2RotationDeadZone) * phase2RotationSensitivity;
+            rotationInput = Mathf.Clamp(rotationInput, -1f, 1f);
+        }
+
+        // 设置FisherController的Phase2旋转
+        if (fisherController != null)
+        {
+            fisherController.SetESP32Phase2Rotation(rotationInput);
         }
 
         // === 力度控制 ===
@@ -326,6 +349,7 @@ public class ESP32FisherController : MonoBehaviour
             if (fisherController != null)
             {
                 fisherController.EnablePhase2Mode();
+                fisherController.EnableESP32Phase2Rotation();
             }
         }
         else
@@ -334,6 +358,7 @@ public class ESP32FisherController : MonoBehaviour
             if (fisherController != null)
             {
                 fisherController.DisablePhase2Mode();
+                fisherController.DisableESP32Phase2Rotation();
             }
         }
     }

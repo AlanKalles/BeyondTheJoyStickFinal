@@ -20,8 +20,11 @@ namespace FishAndFisher.Phase2
         [Tooltip("是否使用ESP32旋转输入")]
         [SerializeField] private bool useESP32Input = false;
 
-        [Tooltip("ESP32旋转死区（度）")]
-        [SerializeField] private float esp32DeadZone = 5f;
+        [Tooltip("ESP32鱼旋转死区（度）- eulerAngles.x 需要超过此值才判定为左/右")]
+        [SerializeField] private float esp32FishDeadZone = 15f;
+
+        [Tooltip("ESP32渔夫旋转死区（度）- eulerAngles.z 需要超过此值才判定为左/右")]
+        [SerializeField] private float esp32FisherDeadZone = 15f;
 
         // ESP32旋转值（由ESP32Controller设置）
         private float esp32FishRotation = 0f;
@@ -237,15 +240,16 @@ namespace FishAndFisher.Phase2
         private void UpdateESP32FishDirection()
         {
             // 负角度 → 左方向，正角度 → 右方向
-            if (Mathf.Abs(esp32FishRotation) < esp32DeadZone)
+            // 只有超过死区才判定为有效方向
+            if (Mathf.Abs(esp32FishRotation) < esp32FishDeadZone)
             {
                 fishDirection = Vector2.zero;
             }
-            else if (esp32FishRotation < 0)
+            else if (esp32FishRotation < -esp32FishDeadZone)
             {
                 fishDirection = new Vector2(1, 0); // 左方向
             }
-            else
+            else if (esp32FishRotation > esp32FishDeadZone)
             {
                 fishDirection = new Vector2(-1, 0); // 右方向
             }
@@ -257,15 +261,16 @@ namespace FishAndFisher.Phase2
         private void UpdateESP32FisherDirection()
         {
             // 负角度 → 左方向，正角度 → 右方向
-            if (Mathf.Abs(esp32FisherRotation) < esp32DeadZone)
+            // 只有超过死区才判定为有效方向
+            if (Mathf.Abs(esp32FisherRotation) < esp32FisherDeadZone)
             {
                 fisherDirection = Vector2.zero;
             }
-            else if (esp32FisherRotation < 0)
+            else if (esp32FisherRotation < -esp32FisherDeadZone)
             {
                 fisherDirection = new Vector2(1, 0); // 左方向
             }
-            else
+            else if (esp32FisherRotation > esp32FisherDeadZone)
             {
                 fisherDirection = new Vector2(-1, 0); // 右方向
             }

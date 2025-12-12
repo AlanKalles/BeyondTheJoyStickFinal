@@ -32,17 +32,14 @@ public class ESP32FishController : MonoBehaviour
     [Tooltip("陀螺仪最大值（用于归一化，运动时可达800）")]
     public float gyroMaxValue = 800f;
 
-    [Tooltip("最小Jump触发间隔（秒）- gyroMagnitude最大时的间隔")]
-    public float minJumpInterval = 0.05f;
-
-    [Tooltip("最大Jump触发间隔（秒）- gyroMagnitude刚超过阈值时的间隔")]
-    public float maxJumpInterval = 0.3f;
-
-    [Tooltip("动力输入的平滑时间")]
+    [Tooltip("速度平滑时间")]
     [Range(0f, 0.5f)]
-    public float powerSmoothTime = 0.1f;
+    public float speedSmoothTime = 0.15f;
 
     [Header("Phase2设置")]
+    [Tooltip("Phase2旋转死区（度）- 与Phase2InputNormalizer保持一致")]
+    public float phase2RotationDeadZone = 15f;
+
     [Tooltip("Phase2旋转灵敏度")]
     [Range(0.5f, 2f)]
     public float phase2RotationSensitivity = 1f;
@@ -63,15 +60,13 @@ public class ESP32FishController : MonoBehaviour
     // 当前游戏阶段
     private int currentPhase = 1;
 
-    // 动力平滑
+    // 速度平滑
+    private float currentNormalizedSpeed = 0f;
+    private float speedVelocity = 0f;
+
+    // Phase2力度平滑
     private float currentPower = 0f;
     private float powerVelocity = 0f;
-
-    // 上一帧的加速状态（用于检测变化）
-    private bool wasAccelerating = false;
-
-    // Jump触发时间控制
-    private float lastJumpTriggerTime = 0f;
 
     // Phase2力度输出（供外部读取）
     public float CurrentPhase2Force { get; private set; }
@@ -154,6 +149,12 @@ public class ESP32FishController : MonoBehaviour
         else
         {
             Debug.Log($"[ESP32FishController] 找到 FishMovement: {fishMovement.gameObject.name}");
+
+            // 启用ESP32速度控制模式
+            if (enableESP32Control)
+            {
+                fishMovement.EnableESP32SpeedControl();
+            }
         }
 
         // Phase2组件是场景中的组件，需要重新查找
@@ -178,8 +179,8 @@ public class ESP32FishController : MonoBehaviour
 
         // 重置状态
         currentPhase = 1;
-        currentPower = 0f;
-        wasAccelerating = false;
+        currentNormalizedSpeed = 0f;
+        speedVelocity = 0f;
     }
 
     private void Update()
@@ -226,34 +227,32 @@ public class ESP32FishController : MonoBehaviour
         // 设置移动输入
         fishMovement.SetMoveInput(moveInput);
 
-        // === 动力控制 ===
+        // === 速度控制 ===
         float gyroMag = fishReceiver.gyroMagnitude;
-        bool isAccelerating = gyroMag > gyroThreshold;
 
-        if (isAccelerating)
+        // 计算目标归一化速度
+        float targetNormalizedSpeed;
+        if (gyroMag <= gyroThreshold)
         {
-            // 根据gyroMagnitude计算Jump触发间隔
-            // gyroMagnitude越大，间隔越小（触发越频繁）
-            float normalizedGyro = Mathf.Clamp01((gyroMag - gyroThreshold) / (gyroMaxValue - gyroThreshold));
-            float currentInterval = Mathf.Lerp(maxJumpInterval, minJumpInterval, normalizedGyro);
-
-            // 检查是否可以触发Jump
-            if (Time.time - lastJumpTriggerTime >= currentInterval)
-            {
-                fishMovement.OnJumpPressed(true);
-                lastJumpTriggerTime = Time.time;
-            }
+            // 低于阈值：保持基础速度（归一化为0）
+            targetNormalizedSpeed = 0f;
         }
         else
         {
-            // 低于阈值时，如果之前在加速，发送释放信号
-            if (wasAccelerating)
-            {
-                fishMovement.OnJumpPressed(false);
-            }
+            // 高于阈值：根据gyroMagnitude线性映射到0-1
+            targetNormalizedSpeed = Mathf.Clamp01((gyroMag - gyroThreshold) / (gyroMaxValue - gyroThreshold));
         }
 
-        wasAccelerating = isAccelerating;
+        // 平滑过渡速度
+        currentNormalizedSpeed = Mathf.SmoothDamp(
+            currentNormalizedSpeed,
+            targetNormalizedSpeed,
+            ref speedVelocity,
+            speedSmoothTime
+        );
+
+        // 设置FishMovement的速度
+        fishMovement.SetESP32Speed(currentNormalizedSpeed);
     }
 
     /// <summary>
@@ -261,13 +260,25 @@ public class ESP32FishController : MonoBehaviour
     /// </summary>
     private void UpdatePhase2Input()
     {
-        // === 旋转控制（无死区）===
+        // === 旋转控制（带死区，与方向判定同步）===
         float eulerX = fishReceiver.eulerAngles.x;
 
-        // 直接映射角度到方向输入
-        // 负角度 → 左方向（x>0），正角度 → 右方向（x<0）
-        float rotationInput = -eulerX / 90f * phase2RotationSensitivity;
-        rotationInput = Mathf.Clamp(rotationInput, -1f, 1f);
+        // 计算方向输入（带死区）
+        // 只有超过死区才产生旋转输入，与Phase2InputNormalizer的判定保持一致
+        float rotationInput;
+        if (Mathf.Abs(eulerX) < phase2RotationDeadZone)
+        {
+            // 死区内：无旋转
+            rotationInput = 0f;
+        }
+        else
+        {
+            // 死区外：计算旋转量
+            // 负角度 → 左方向（x>0），正角度 → 右方向（x<0）
+            float effectiveAngle = eulerX - Mathf.Sign(eulerX) * phase2RotationDeadZone;
+            rotationInput = -effectiveAngle / (90f - phase2RotationDeadZone) * phase2RotationSensitivity;
+            rotationInput = Mathf.Clamp(rotationInput, -1f, 1f);
+        }
 
         // 设置Phase2方向输入
         fishMovement.SetPhase2DirectionInput(new Vector2(rotationInput, 0f));
@@ -283,7 +294,7 @@ public class ESP32FishController : MonoBehaviour
         float normalizedForce = Mathf.Clamp01(gyroMag / gyroMaxValue);
 
         // 平滑力度变化
-        currentPower = Mathf.SmoothDamp(currentPower, normalizedForce, ref powerVelocity, powerSmoothTime);
+        currentPower = Mathf.SmoothDamp(currentPower, normalizedForce, ref powerVelocity, speedSmoothTime);
         CurrentPhase2Force = currentPower;
 
         // 设置Phase2力度
@@ -361,8 +372,10 @@ public class ESP32FishController : MonoBehaviour
 
         if (fishReceiver != null && fishReceiver.isConnected)
         {
-            debugInfo += $"EulerX: {fishReceiver.eulerAngles.x:F1}° (死区: ±{eulerXDeadZone}°)\n";
-            debugInfo += $"GyroMag: {fishReceiver.gyroMagnitude:F2} (阈值: {gyroThreshold})\n";
+            float deadZone = currentPhase == 1 ? eulerXDeadZone : phase2RotationDeadZone;
+            debugInfo += $"EulerX: {fishReceiver.eulerAngles.x:F1}° (死区: ±{deadZone}°)\n";
+            debugInfo += $"GyroMag: {fishReceiver.gyroMagnitude:F0} (阈值: {gyroThreshold}, 最大: {gyroMaxValue})\n";
+            debugInfo += $"速度: {currentNormalizedSpeed:P0}\n";
 
             if (currentPhase == 2)
             {

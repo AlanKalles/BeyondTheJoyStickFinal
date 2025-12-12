@@ -198,6 +198,19 @@ namespace FishAndFisher.Phase2
                 fisherController.EnablePhase2Mode();
             }
 
+            // 5. 通知ESP32控制器切换到Phase2
+            if (ESP32FishController.Instance != null)
+            {
+                ESP32FishController.Instance.SetGamePhase(2);
+                Debug.Log("[Phase2Manager] 已通知ESP32FishController切换到Phase2");
+            }
+
+            if (ESP32FisherController.Instance != null)
+            {
+                ESP32FisherController.Instance.SetGamePhase(2);
+                Debug.Log("[Phase2Manager] 已通知ESP32FisherController切换到Phase2");
+            }
+
             // 5. 播放Phase2开始音效
             if (audioManager != null)
             {
@@ -262,7 +275,18 @@ namespace FishAndFisher.Phase2
                 fisherController.DisablePhase2Mode();
             }
 
-            // 6. 停止争斗音效
+            // 6. 通知ESP32控制器切换回Phase1
+            if (ESP32FishController.Instance != null)
+            {
+                ESP32FishController.Instance.SetGamePhase(1);
+            }
+
+            if (ESP32FisherController.Instance != null)
+            {
+                ESP32FisherController.Instance.SetGamePhase(1);
+            }
+
+            // 7. 停止争斗音效
             if (audioManager != null)
             {
                 audioManager.StopStruggleLoopSound();
