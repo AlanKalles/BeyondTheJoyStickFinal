@@ -267,6 +267,7 @@ namespace FishAndFisher.Input
         /// <summary>
         /// 获取瞄准/观察位置（用于渔夫准心控制）
         /// 优先使用ESP32 FisherReceiver的数据
+        /// 返回屏幕坐标（与键盘模式一致）
         /// </summary>
         public Vector2 GetLookPosition()
         {
@@ -276,12 +277,17 @@ namespace FishAndFisher.Input
                 // 从FisherReceiver的欧拉角获取瞄准方向
                 Vector3 euler = fisherReceiver.eulerAngles;
 
-                // 将倾斜角度映射到屏幕位置或归一化值
+                // 将倾斜角度映射到归一化值 (-1 到 1)
                 float maxTiltAngle = 45f;
-                float x = Mathf.Clamp(euler.y / maxTiltAngle, -1f, 1f);  // Yaw -> 左右
-                float y = Mathf.Clamp(-euler.x / maxTiltAngle, -1f, 1f); // Pitch -> 上下（取反）
+                float normalizedX = Mathf.Clamp(euler.y / maxTiltAngle, -1f, 1f);  // Yaw -> 左右
+                float normalizedY = Mathf.Clamp(-euler.x / maxTiltAngle, -1f, 1f); // Pitch -> 上下（取反）
 
-                return new Vector2(x, y);
+                // 转换为屏幕坐标（与键盘模式的鼠标坐标格式一致）
+                // FisherCrosshairController 期望的是屏幕坐标，用于 ScreenPointToRay
+                float screenX = (normalizedX + 1f) * 0.5f * Screen.width;
+                float screenY = (normalizedY + 1f) * 0.5f * Screen.height;
+
+                return new Vector2(screenX, screenY);
             }
 
             // 回退到键盘输入
