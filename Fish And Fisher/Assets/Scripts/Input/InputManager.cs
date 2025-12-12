@@ -45,9 +45,21 @@ namespace FishAndFisher.Input
         [Tooltip("当前使用的输入提供者类型")]
         private string currentProviderName = "未初始化";
 
+        [Header("ESP32 设置")]
+        [Tooltip("是否优先使用ESP32输入（如果可用）")]
+        [SerializeField] private bool preferESP32Input = true;
+
+        [Tooltip("ESP32连接检测间隔（秒）")]
+        [SerializeField] private float esp32CheckInterval = 1f;
+
         private IInputProvider currentProvider;
         private KeyboardInputProvider keyboardProvider;
         private ESP32InputProvider esp32Provider; // 预留 ESP32 提供者
+
+        // ESP32 Receiver 引用（场景中的MonoBehaviour）
+        private FishReceiver fishReceiver;
+        private FisherReceiver fisherReceiver;
+        private float lastESP32CheckTime = 0f;
 
         #endregion
 
@@ -70,6 +82,17 @@ namespace FishAndFisher.Input
             }
 
             InitializeInputProviders();
+        }
+
+        private void Update()
+        {
+            // 定期检测ESP32连接状态
+            if (preferESP32Input && Time.time - lastESP32CheckTime > esp32CheckInterval)
+            {
+                lastESP32CheckTime = Time.time;
+                TryFindESP32Receivers();
+                UpdateProviderName();
+            }
         }
 
         private void OnDestroy()
@@ -99,23 +122,69 @@ namespace FishAndFisher.Input
         {
             Debug.Log("[InputManager] 开始初始化输入提供者...");
 
-            // TODO: 未来在这里检测 ESP32
-            // if (TryDetectESP32(out esp32Provider))
-            // {
-            //     currentProvider = esp32Provider;
-            //     currentProviderName = "ESP32";
-            //     Debug.Log("[InputManager] 检测到 ESP32，使用 ESP32 输入");
-            // }
-            // else
-            // {
-            //     // 回退到键盘输入
-            //     UseKeyboardInput();
-            // }
-
-            // 当前阶段：默认使用键盘输入
+            // 初始化键盘输入作为备用
             UseKeyboardInput();
 
+            // 尝试查找ESP32 Receiver
+            if (preferESP32Input)
+            {
+                TryFindESP32Receivers();
+            }
+
+            UpdateProviderName();
             Debug.Log($"[InputManager] 输入初始化完成，当前设备: {currentProviderName}");
+        }
+
+        /// <summary>
+        /// 尝试在场景中查找ESP32 Receiver
+        /// </summary>
+        private void TryFindESP32Receivers()
+        {
+            // 查找FishReceiver
+            if (fishReceiver == null)
+            {
+                fishReceiver = FindFirstObjectByType<FishReceiver>();
+                if (fishReceiver != null)
+                {
+                    Debug.Log("[InputManager] 找到 FishReceiver");
+                }
+            }
+
+            // 查找FisherReceiver
+            if (fisherReceiver == null)
+            {
+                fisherReceiver = FindFirstObjectByType<FisherReceiver>();
+                if (fisherReceiver != null)
+                {
+                    Debug.Log("[InputManager] 找到 FisherReceiver");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 更新输入提供者名称显示
+        /// </summary>
+        private void UpdateProviderName()
+        {
+            bool fishESP32Connected = fishReceiver != null && fishReceiver.isConnected;
+            bool fisherESP32Connected = fisherReceiver != null && fisherReceiver.isConnected;
+
+            if (fishESP32Connected && fisherESP32Connected)
+            {
+                currentProviderName = "ESP32 (鱼+渔夫)";
+            }
+            else if (fishESP32Connected)
+            {
+                currentProviderName = "ESP32 (鱼) + 键盘 (渔夫)";
+            }
+            else if (fisherESP32Connected)
+            {
+                currentProviderName = "键盘 (鱼) + ESP32 (渔夫)";
+            }
+            else
+            {
+                currentProviderName = "键盘";
+            }
         }
 
         /// <summary>
@@ -137,21 +206,8 @@ namespace FishAndFisher.Input
             }
 
             currentProvider = keyboardProvider;
-            currentProviderName = keyboardProvider.GetDeviceName();
             Debug.Log("[InputManager] 已切换到键盘输入");
         }
-
-        // TODO: 未来实现 ESP32 检测和切换方法
-        // private bool TryDetectESP32(out ESP32InputProvider provider)
-        // {
-        //     provider = new ESP32InputProvider();
-        //     if (provider.TryConnect())
-        //     {
-        //         provider.Initialize();
-        //         return true;
-        //     }
-        //     return false;
-        // }
 
         #endregion
 
@@ -159,9 +215,26 @@ namespace FishAndFisher.Input
 
         /// <summary>
         /// 获取移动输入（用于鱼的移动控制）
+        /// 优先使用ESP32 FishReceiver的数据
         /// </summary>
         public Vector2 GetMovement()
         {
+            // 优先检测ESP32 FishReceiver
+            if (preferESP32Input && fishReceiver != null && fishReceiver.isConnected)
+            {
+                // 从FishReceiver的欧拉角获取移动方向
+                // 使用pitch(X)和roll(Z)作为移动输入
+                Vector3 euler = fishReceiver.eulerAngles;
+
+                // 将倾斜角度映射到-1到1的范围（假设最大倾斜45度）
+                float maxTiltAngle = 45f;
+                float x = Mathf.Clamp(euler.z / maxTiltAngle, -1f, 1f);  // Roll -> 左右
+                float y = Mathf.Clamp(-euler.x / maxTiltAngle, -1f, 1f); // Pitch -> 前后（取反）
+
+                return new Vector2(x, y);
+            }
+
+            // 回退到键盘输入
             if (currentProvider == null || !currentProvider.IsConnected)
             {
                 return Vector2.zero;
@@ -171,9 +244,19 @@ namespace FishAndFisher.Input
 
         /// <summary>
         /// 获取加速/跳跃按钮状态（用于鱼的加速）
+        /// 优先使用ESP32 FishReceiver的陀螺仪震动检测
         /// </summary>
         public bool GetJumpPressed()
         {
+            // 优先检测ESP32 FishReceiver
+            if (preferESP32Input && fishReceiver != null && fishReceiver.isConnected)
+            {
+                // 使用gyroMagnitude检测震动（阈值可调）
+                float shakeThreshold = 2.0f;
+                return fishReceiver.gyroMagnitude > shakeThreshold;
+            }
+
+            // 回退到键盘输入
             if (currentProvider == null || !currentProvider.IsConnected)
             {
                 return false;
@@ -183,9 +266,25 @@ namespace FishAndFisher.Input
 
         /// <summary>
         /// 获取瞄准/观察位置（用于渔夫准心控制）
+        /// 优先使用ESP32 FisherReceiver的数据
         /// </summary>
         public Vector2 GetLookPosition()
         {
+            // 优先检测ESP32 FisherReceiver
+            if (preferESP32Input && fisherReceiver != null && fisherReceiver.isConnected)
+            {
+                // 从FisherReceiver的欧拉角获取瞄准方向
+                Vector3 euler = fisherReceiver.eulerAngles;
+
+                // 将倾斜角度映射到屏幕位置或归一化值
+                float maxTiltAngle = 45f;
+                float x = Mathf.Clamp(euler.y / maxTiltAngle, -1f, 1f);  // Yaw -> 左右
+                float y = Mathf.Clamp(-euler.x / maxTiltAngle, -1f, 1f); // Pitch -> 上下（取反）
+
+                return new Vector2(x, y);
+            }
+
+            // 回退到键盘输入
             if (currentProvider == null || !currentProvider.IsConnected)
             {
                 return Vector2.zero;
@@ -195,9 +294,17 @@ namespace FishAndFisher.Input
 
         /// <summary>
         /// 获取攻击按钮状态（用于渔夫挥竿）
+        /// 优先使用ESP32 FisherReceiver的按钮状态
         /// </summary>
         public bool GetAttackPressed()
         {
+            // 优先检测ESP32 FisherReceiver
+            if (preferESP32Input && fisherReceiver != null && fisherReceiver.isConnected)
+            {
+                return fisherReceiver.buttonPressed;
+            }
+
+            // 回退到键盘输入
             if (currentProvider == null || !currentProvider.IsConnected)
             {
                 return false;
@@ -226,28 +333,57 @@ namespace FishAndFisher.Input
         #region 手动切换（可选功能）
 
         /// <summary>
-        /// 手动强制切换到键盘输入
+        /// 手动强制切换到键盘输入（禁用ESP32优先）
         /// </summary>
         public void ForceKeyboardInput()
         {
-            Debug.Log("[InputManager] 手动切换到键盘输入");
-            UseKeyboardInput();
+            preferESP32Input = false;
+            Debug.Log("[InputManager] 手动切换到键盘输入，已禁用ESP32优先");
+            UpdateProviderName();
         }
 
-        // TODO: 未来添加手动切换到 ESP32 的方法
-        // public void ForceESP32Input()
-        // {
-        //     if (esp32Provider != null && esp32Provider.IsConnected)
-        //     {
-        //         currentProvider = esp32Provider;
-        //         currentProviderName = "ESP32";
-        //         Debug.Log("[InputManager] 手动切换到 ESP32 输入");
-        //     }
-        //     else
-        //     {
-        //         Debug.LogWarning("[InputManager] ESP32 未连接，无法切换");
-        //     }
-        // }
+        /// <summary>
+        /// 启用ESP32优先输入
+        /// </summary>
+        public void EnableESP32Input()
+        {
+            preferESP32Input = true;
+            TryFindESP32Receivers();
+            UpdateProviderName();
+            Debug.Log("[InputManager] 已启用ESP32优先输入");
+        }
+
+        /// <summary>
+        /// 检查Fish ESP32是否已连接
+        /// </summary>
+        public bool IsFishESP32Connected()
+        {
+            return fishReceiver != null && fishReceiver.isConnected;
+        }
+
+        /// <summary>
+        /// 检查Fisher ESP32是否已连接
+        /// </summary>
+        public bool IsFisherESP32Connected()
+        {
+            return fisherReceiver != null && fisherReceiver.isConnected;
+        }
+
+        /// <summary>
+        /// 获取FishReceiver引用（供外部直接访问ESP32数据）
+        /// </summary>
+        public FishReceiver GetFishReceiver()
+        {
+            return fishReceiver;
+        }
+
+        /// <summary>
+        /// 获取FisherReceiver引用（供外部直接访问ESP32数据）
+        /// </summary>
+        public FisherReceiver GetFisherReceiver()
+        {
+            return fisherReceiver;
+        }
 
         #endregion
     }

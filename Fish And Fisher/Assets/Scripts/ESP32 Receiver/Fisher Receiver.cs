@@ -51,6 +51,9 @@ public class FisherReceiver : MonoBehaviour
     float lastSpeedTime = 0f;
     bool hasLastCount = false;
 
+    // 距离数据发送计时器
+    float lastProximitySendTime = 0f;
+
     void Start()
     {
         TryConnect();
@@ -194,6 +197,38 @@ public class FisherReceiver : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Space))
             Recalibrate();
+
+        // 发送距离数据
+        SendProximityData();
+    }
+
+    /// <summary>
+    /// 发送距离数据到ESP32
+    /// </summary>
+    void SendProximityData()
+    {
+        if (!enableProximitySending) return;
+        if (!isConnected || serial == null || !serial.IsOpen) return;
+        if (Time.time - lastProximitySendTime < proximitySendInterval) return;
+
+        // 获取距离数据
+        float proximityValue = 0f;
+        if (FishAndFisher.DistanceTracker.Instance != null)
+        {
+            proximityValue = FishAndFisher.DistanceTracker.Instance.GetProximityValue();
+        }
+
+        // 发送数据（带标识符）
+        string message = $"PROXIMITY:{proximityValue:F2}\n";
+        try
+        {
+            serial.Write(message);
+            lastProximitySendTime = Time.time;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Fisher Receiver: 发送距离数据失败 - {ex.Message}");
+        }
     }
 
     void CalculateEncoderSpeed()
