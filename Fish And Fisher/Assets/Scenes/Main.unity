@@ -284,7 +284,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseSpeed: 2
-  maxSpeed: 5
+  maxSpeed: 8
   acceleration: 3
   deceleration: 3
   turnDampening: 0
@@ -772,8 +772,8 @@ MonoBehaviour:
   enableESP32Control: 1
   eulerXDeadZone: 15
   turnSensitivity: 1
-  gyroThreshold: 0.5
-  gyroMaxValue: 5
+  gyroThreshold: 50
+  gyroMaxValue: 800
   powerSmoothTime: 0.1
   phase2RotationSensitivity: 1
   fishReceiver: {fileID: 1960643619}
@@ -5207,7 +5207,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5665ea0970bde47f98053874a572b225, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C2EE1C2
+  portName: COM11
   baudRate: 115200
   reconnectInterval: 2
   countsPerRevolution: 80
@@ -5251,7 +5251,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b787127b97d47429579ed462d68936, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  portName: /dev/cu.usbmodem3C8427C31A6C2
+  portName: COM13
   baudRate: 115200
   reconnectInterval: 2
   rawQuaternion: {x: 0, y: 0, z: 0, w: 1}

@@ -26,11 +26,17 @@ public class ESP32FishController : MonoBehaviour
     public float turnSensitivity = 1f;
 
     [Header("Phase1设置 - 动力控制")]
-    [Tooltip("陀螺仪触发加速的阈值")]
-    public float gyroThreshold = 0.5f;
+    [Tooltip("陀螺仪触发加速的阈值（静止时约0-50，运动时100-800）")]
+    public float gyroThreshold = 50f;
 
-    [Tooltip("陀螺仪最大值（用于归一化）")]
-    public float gyroMaxValue = 5f;
+    [Tooltip("陀螺仪最大值（用于归一化，运动时可达800）")]
+    public float gyroMaxValue = 800f;
+
+    [Tooltip("最小Jump触发间隔（秒）- gyroMagnitude最大时的间隔")]
+    public float minJumpInterval = 0.05f;
+
+    [Tooltip("最大Jump触发间隔（秒）- gyroMagnitude刚超过阈值时的间隔")]
+    public float maxJumpInterval = 0.3f;
 
     [Tooltip("动力输入的平滑时间")]
     [Range(0f, 0.5f)]
@@ -63,6 +69,9 @@ public class ESP32FishController : MonoBehaviour
 
     // 上一帧的加速状态（用于检测变化）
     private bool wasAccelerating = false;
+
+    // Jump触发时间控制
+    private float lastJumpTriggerTime = 0f;
 
     // Phase2力度输出（供外部读取）
     public float CurrentPhase2Force { get; private set; }
@@ -221,24 +230,26 @@ public class ESP32FishController : MonoBehaviour
         float gyroMag = fishReceiver.gyroMagnitude;
         bool isAccelerating = gyroMag > gyroThreshold;
 
-        // 检测加速状态变化，触发Jump
-        if (isAccelerating && !wasAccelerating)
-        {
-            fishMovement.OnJumpPressed(true);
-        }
-        else if (!isAccelerating && wasAccelerating)
-        {
-            fishMovement.OnJumpPressed(false);
-        }
-
-        // 持续按住时持续触发（模拟连续按键）
         if (isAccelerating)
         {
-            // 根据gyroMagnitude的强度决定是否触发额外的Jump
+            // 根据gyroMagnitude计算Jump触发间隔
+            // gyroMagnitude越大，间隔越小（触发越频繁）
             float normalizedGyro = Mathf.Clamp01((gyroMag - gyroThreshold) / (gyroMaxValue - gyroThreshold));
-            if (normalizedGyro > 0.5f && Time.frameCount % 5 == 0)
+            float currentInterval = Mathf.Lerp(maxJumpInterval, minJumpInterval, normalizedGyro);
+
+            // 检查是否可以触发Jump
+            if (Time.time - lastJumpTriggerTime >= currentInterval)
             {
                 fishMovement.OnJumpPressed(true);
+                lastJumpTriggerTime = Time.time;
+            }
+        }
+        else
+        {
+            // 低于阈值时，如果之前在加速，发送释放信号
+            if (wasAccelerating)
+            {
+                fishMovement.OnJumpPressed(false);
             }
         }
 

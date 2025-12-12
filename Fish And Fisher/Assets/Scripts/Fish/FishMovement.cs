@@ -66,6 +66,10 @@ namespace FishAndFisher.Fish
         private float jumpBoostEndTime;                // 加速结束时间
         private bool isJumpBoosting;                   // 是否正在加速
 
+        // ESP32速度控制
+        private bool useESP32SpeedControl;             // 是否使用ESP32速度控制
+        private float esp32TargetSpeed;                // ESP32目标速度
+
         // 方向平滑
         private float directionVelocity;               // 方向插值速度
 

@@ -7,7 +7,7 @@ using System.Globalization;
 public class FishReceiver : MonoBehaviour
 {
     [Header("Serial Settings")]
-    public string portName = "/dev/cu.usbmodem3C8427C31A6C2";
+    public string portName = "COM11";
     public int baudRate = 115200;
     public float reconnectInterval = 2f;  // Seconds between reconnection attempts
 

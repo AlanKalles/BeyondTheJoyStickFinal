@@ -7,7 +7,7 @@ using System.Globalization;
 public class FisherReceiver : MonoBehaviour
 {
     [Header("Serial Settings")]
-    public string portName = "/dev/cu.usbmodem3C8427C2EE1C2";
+    public string portName = "COM13";
     public int baudRate = 115200;
     public float reconnectInterval = 2f;
 
